@@ -21,3 +21,7 @@ Para usarlo en el móvil fuera del entorno de desarrollo será necesario publica
 En GitHub, abre **Settings → Pages** del repositorio. Selecciona **Deploy from a branch**, rama **main**, carpeta **/ (root)** y pulsa **Save**. El panel es estático y no requiere compilación. GitHub mostrará la URL cuando termine el despliegue.
 
 La web publicada no contiene los pendientes ni las notas personales: estos se introducen en el navegador. Cada navegador mantiene sus propios datos. El enlace de Keep sigue requiriendo acceso a la nota en Google.
+
+## Dictar pendientes
+
+En Chrome para Android, pulsa «Dictar pendiente», permite el micrófono y habla en español. Revisa el texto y pulsa + para añadirlo; nunca se guarda automáticamente. Si ya habías escrito un borrador, el dictado se añade al final (máximo 200 caracteres). Puedes terminar el dictado con el mismo botón. Requiere HTTPS (o localhost para desarrollo) y un navegador compatible con SpeechRecognition/webkitSpeechRecognition. El servicio del navegador puede necesitar Internet y procesar audio fuera del dispositivo. Si no está disponible, puedes escribir o usar el micrófono del teclado.

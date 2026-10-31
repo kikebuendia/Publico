@@ -10,6 +10,73 @@ function removeButton(action, label) { const b = document.createElement('button'
 function renderList(kind) { $(kind).replaceChildren(); state[kind].forEach((item,i) => { const li = document.createElement('li'); const check = document.createElement('input'); check.type = 'checkbox'; check.checked = !!item.done; check.setAttribute('aria-label', `${kind === 'people' ? 'Marcar llamada hecha a' : 'Completar'} ${item.text}`); check.onchange = () => { item.done = check.checked; save(); }; const text = document.createElement('span'); text.textContent = item.text; li.classList.toggle('done',!!item.done); li.append(check,text,removeButton(() => {state[kind].splice(i,1);save();}, `Eliminar ${item.text}`)); $(kind).append(li); }); }
 function render() { renderList('tasks'); renderList('people'); $('empty').hidden = state.tasks.length > 0; $('people-empty').hidden = state.people.length > 0; $('count').textContent = state.tasks.filter(t => !t.done).length; $('meals-link').href = safeUrl(state.meals,true) || 'https://keep.google.com/'; $('travels').replaceChildren(); state.travels.forEach((item,i) => { const li = document.createElement('li'); const a = document.createElement('a'); a.textContent = item.text + ' ↗'; a.href = safeUrl(item.url) || '#'; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.append(a,removeButton(() => {state.travels.splice(i,1);save();},`Eliminar ${item.text}`)); $('travels').append(li); }); }
 for (const [form,input,kind] of [['task-form','task','tasks'],['person-form','person','people']]) $(form).onsubmit = e => {e.preventDefault();const text = $(input).value.trim();if(!text)return;state[kind].push({text,done:false});$(input).value='';save();$(input).focus();};
+// El dictado solo rellena el borrador: el usuario decide cuándo añadirlo.
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let dictation = null;
+function resetVoice() {
+  $('voice-task').textContent = '🎙 Dictar pendiente';
+  $('voice-task').setAttribute('aria-pressed', 'false');
+  $('task-form').querySelector('button').disabled = false;
+}
+$('voice-task').onclick = () => {
+  if (dictation) { dictation.stop(); return; }
+  if (!Recognition || !window.isSecureContext) {
+    $('voice-status').textContent = 'Este navegador no permite dictado aquí. Puedes usar el micrófono del teclado del móvil o escribir.';
+    return;
+  }
+  const recognition = new Recognition();
+  recognition.lang = 'es-ES';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  const draft = $('task').value.trim();
+  let received = false;
+  let failed = false;
+  dictation = recognition;
+  recognition.onresult = event => {
+    const fragments = [];
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) fragments.push(event.results[i][0].transcript.trim());
+    }
+    const spoken = fragments.join(' ').trim();
+    if (!spoken) return;
+    received = true;
+    const full = [draft, spoken].filter(Boolean).join(' ');
+    $('task').value = full.slice(0, $('task').maxLength);
+    $('voice-status').textContent = full.length > $('task').maxLength
+      ? 'El texto se ha recortado a 200 caracteres. Revísalo y pulsa + para añadirlo.'
+      : 'Revisa el texto y pulsa + para añadir el pendiente.';
+  };
+  recognition.onerror = event => {
+    failed = true;
+    const messages = {
+      'not-allowed': 'No hay permiso para usar el micrófono. Permítelo en los ajustes del sitio de Chrome o usa el teclado.',
+      'service-not-allowed': 'El navegador no permite el servicio de dictado. Prueba con el micrófono del teclado.',
+      'audio-capture': 'No se pudo acceder al micrófono. Comprueba que está disponible.',
+      'no-speech': 'No se ha detectado voz. Pulsa Dictar pendiente para intentarlo otra vez.',
+      network: 'El dictado no pudo conectarse. Comprueba tu conexión e inténtalo de nuevo.',
+      aborted: 'Dictado detenido. Puedes editar el texto o volver a intentarlo.'
+    };
+    $('voice-status').textContent = messages[event.error] || 'No se pudo completar el dictado. Puedes volver a intentarlo o escribir.';
+  };
+  recognition.onend = () => {
+    dictation = null;
+    resetVoice();
+    if (!received && !failed) $('voice-status').textContent = 'No se ha detectado texto. Puedes volver a dictar o escribir.';
+  };
+  try {
+    recognition.start();
+    $('voice-task').textContent = '■ Terminar dictado';
+    $('voice-task').setAttribute('aria-pressed', 'true');
+    $('task-form').querySelector('button').disabled = true;
+    $('voice-status').textContent = 'Escuchando… Di tu pendiente. Después podrás revisarlo antes de guardarlo.';
+  } catch {
+    dictation = null;
+    resetVoice();
+    $('voice-status').textContent = 'No se pudo iniciar el dictado. Puedes usar el micrófono del teclado o escribir.';
+  }
+};
+window.addEventListener('pagehide', () => { if (dictation) dictation.abort(); });
+
 $('configure').onclick = () => { $('meals').value = state.meals; $('settings-error').textContent=''; $('settings').showModal(); };
 $('cancel').onclick = () => $('settings').close();
 $('settings-form').onsubmit = e => { e.preventDefault(); const meals = safeUrl($('meals').value,true); if(!meals){$('settings-error').textContent='Usa una dirección HTTPS de keep.google.com para la nota.';return;}state.meals=meals;save();$('settings').close(); };
