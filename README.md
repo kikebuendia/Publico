@@ -10,7 +10,9 @@ Desde este directorio:
 python3 -m http.server 8000 --bind 0.0.0.0
 ```
 
-Los datos se guardan en localStorage del navegador y origen utilizados. No hay sincronización entre dispositivos ni copia en servidor. El botón «Exportar copia» descarga los datos como JSON. Las notas compartidas permanecen en Keep: configura sus enlaces desde el panel. No hay integración con Gmail/Keep ni alertas automáticas de precios. Las fuentes de Google son opcionales; hay fuentes de respaldo locales.
+Los datos se guardan en localStorage del navegador y origen utilizados. No hay sincronización entre dispositivos ni copia en servidor. El botón «Exportar copia» descarga los datos como JSON. Para restaurar una copia, pulsa «Importar copia», selecciona el JSON exportado y confirma. La importación valida el contenido y reemplaza los datos actuales de este navegador, incluidos los enlaces de Keep; exporta antes si quieres conservarlos. Si cancelas, el archivo no es válido o falla el guardado, se mantienen los datos actuales. El tamaño máximo es 5 MB.
+
+Las notas compartidas permanecen en Keep: configura sus enlaces desde el panel. No hay integración con Gmail/Keep ni alertas automáticas de precios. Las fuentes de Google son opcionales; hay fuentes de respaldo locales.
 
 Para usarlo en el móvil fuera del entorno de desarrollo será necesario publicarlo en un alojamiento HTTPS. No incluye autenticación: evita usarlo en navegadores compartidos.
 
