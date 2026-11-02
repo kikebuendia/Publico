@@ -7,6 +7,7 @@
   let token = '', expiryTimer, generation = 0, sdkPromise;
   const message = text => { el('calendar-status').textContent = text; };
   function clearEvents() {
+    window.dispatchEvent(new CustomEvent('mi-dia-calendar-events', {detail: null}));
     el('calendar-weeks').hidden = true;
     el('calendar-this').replaceChildren();
     el('calendar-next').replaceChildren();
@@ -106,6 +107,7 @@
         events.push(...(data.items || []).filter(event => event.status !== 'cancelled'));
         pageToken = data.nextPageToken || '';
       } while (pageToken);
+      window.dispatchEvent(new CustomEvent('mi-dia-calendar-events', {detail: events}));
       renderWeek('calendar-this', events, start, next);
       renderWeek('calendar-next', events, next, end);
       el('calendar-this-range').textContent = `${shortDate(start)} – ${shortDate(new Date(next.getTime() - 1))}`;

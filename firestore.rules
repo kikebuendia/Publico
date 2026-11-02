@@ -9,18 +9,20 @@ service cloud.firestore {
         return request.resource.data.keys().hasOnly(['revision', 'state', 'updatedAt'])
           && request.resource.data.revision is int
           && request.resource.data.state is map
-          && request.resource.data.state.keys().hasOnly(['tasks', 'people', 'travels', 'meals', 'shopping'])
+          && request.resource.data.state.keys().hasOnly(['tasks', 'people', 'travels', 'meals', 'shopping', 'features'])
           && request.resource.data.state.tasks is list
           && request.resource.data.state.people is list
           && request.resource.data.state.travels is list
           && request.resource.data.state.meals is string
           && request.resource.data.state.shopping is string
+          && (!('features' in request.resource.data.state) || request.resource.data.state.features is map)
           && request.resource.data.updatedAt == request.time;
       }
       allow read: if owner();
       allow create: if owner() && validData()
         && request.resource.data.revision == 1;
       allow update: if owner() && validData()
+        && (!('features' in resource.data.state) || ('features' in request.resource.data.state))
         && request.resource.data.revision == resource.data.revision + 1;
     }
   }

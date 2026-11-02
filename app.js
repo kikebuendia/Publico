@@ -71,7 +71,7 @@ $('help-copy').onclick = async () => {
   }
 };
 
-function render() { renderList('tasks'); renderList('people'); $('empty').hidden = state.tasks.length > 0; $('people-empty').hidden = state.people.length > 0; $('count').textContent = state.tasks.filter(t => !t.done).length; $('meals-link').href = safeUrl(state.meals,true) || 'https://keep.google.com/'; $('travels').replaceChildren(); state.travels.forEach((item,i) => { const li = document.createElement('li'); const a = document.createElement('a'); a.textContent = item.text + ' ↗'; a.href = safeUrl(item.url) || '#'; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.append(a,removeButton(() => {state.travels.splice(i,1);save();},`Eliminar ${item.text}`)); $('travels').append(li); }); }
+function render() { renderList('tasks'); renderList('people'); $('empty').hidden = state.tasks.length > 0; $('people-empty').hidden = state.people.length > 0; $('count').textContent = state.tasks.filter(t => !t.done).length; $('meals-link').href = safeUrl(state.meals,true) || 'https://keep.google.com/'; $('travels').replaceChildren(); state.travels.forEach((item,i) => { const li = document.createElement('li'); const a = document.createElement('a'); a.textContent = item.text + ' ↗'; a.href = safeUrl(item.url) || '#'; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.append(a,removeButton(() => {state.travels.splice(i,1);save();},`Eliminar ${item.text}`)); $('travels').append(li); }); window.dispatchEvent(new Event('mi-dia-render')); }
 for (const [form,input,kind] of [['task-form','task','tasks'],['person-form','person','people']]) $(form).onsubmit = e => {e.preventDefault();const text = $(input).value.trim();if(!text)return;state[kind].push({text,done:false});$(input).value='';save();$(input).focus();};
 // El dictado solo rellena el borrador: el usuario decide cuándo añadirlo.
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -168,6 +168,7 @@ function validateBackup(data) {
     tasks: data.tasks.map(({text, done, nextStep}) => ({text, done, ...(nextStep === undefined ? {} : {nextStep})})),
     people: data.people.map(({text, done}) => ({text, done})),
     travels: data.travels.map(({text, url}) => ({text, url})),
+    ...(data.features === undefined ? {} : {features: window.miDiaFeaturesCore.validate(data.features)}),
     meals: data.meals, shopping: typeof data.shopping === 'string' ? data.shopping : ''
   };
 }
@@ -181,7 +182,8 @@ $('import-file').onchange = async () => {
     try { data = JSON.parse(await file.text()); }
     catch { throw new Error('No se pudo leer un archivo JSON válido.'); }
     const restored = validateBackup(data);
-    if (!window.confirm(`Restaurar ${restored.tasks.length} pendientes, ${restored.people.length} personas, ${restored.travels.length} viajes y el enlace de Keep. Esta copia reemplazará todos los datos actuales de este navegador. Exporta primero una copia si quieres conservarlos. ¿Continuar?`)) {
+    if (data.features === undefined && state.features) restored.features = window.miDiaFeaturesCore.validate(state.features);
+    if (!window.confirm(`Restaurar ${restored.tasks.length} pendientes, ${restored.people.length} personas, ${restored.travels.length} viajes y el enlace de Keep. Si la copia incluye checklist y maleta, también los reemplazará. Las copias antiguas conservan tu checklist y maleta actuales. Exporta primero una copia si quieres conservarlos. ¿Continuar?`)) {
       $('status').textContent = 'Importación cancelada. Tus datos siguen igual.';
       return;
     }
@@ -201,6 +203,10 @@ render();
 
 window.miDia = {
   read: () => JSON.parse(JSON.stringify(state)),
+  updateFeatures(value) {
+    if (editingLocked) throw new Error('Espera a que se carguen tus listas.');
+    state.features = window.miDiaFeaturesCore.validate(value); save();
+  },
   validate: validateBackup,
   useAccount(uid) { key = uid ? `mi-dia-account-${uid}` : 'mi-dia-v1'; },
   apply(data) {
@@ -210,6 +216,7 @@ window.miDia = {
   },
   lock(locked) {
     editingLocked = locked;
-    document.querySelectorAll('.grid input, .grid button, #import, #settings input, #settings button, #help-save').forEach(node => node.disabled = locked);
+    window.dispatchEvent(new CustomEvent('mi-dia-lock', {detail: locked}));
+    document.querySelectorAll('.grid input, .grid button, #import, #settings input, #settings button, #help-save, .daily input, .daily button, .daily select, #packing-settings input, #packing-settings button, #reminder-dismiss').forEach(node => node.disabled = locked);
   }
 };

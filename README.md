@@ -77,3 +77,16 @@ Cada pendiente tiene un botón **Preparar con ChatGPT**. Permite guardar un **pr
 Puedes añadir contexto temporal, revisar o editar la petición, pulsar **Copiar petición** y abrir ChatGPT para pegarla. La web no envía automáticamente datos a ChatGPT ni necesita una clave de OpenAI. El contexto temporal no se guarda en las listas. Al cambiar el próximo paso o el contexto se regenera la petición.
 
 Validación de interfaz: con el servidor local en el puerto 8000, Playwright y Chromium disponibles, ejecutar `node tests/task-help.browser.cjs` (opcionalmente `CHROMIUM_PATH`). Esta prueba usa un navegador nuevo y bloquea la sincronización remota: comprueba la interfaz móvil, el portapapeles, la persistencia local y la conservación del nuevo campo al validar datos, sin acceder a cuentas reales.
+
+
+## Checklist diario y maleta
+
+Antes de usar la sincronización de estas funciones, **actualiza las reglas publicadas de Firestore con el archivo `firestore.rules` completo**. El nuevo campo opcional `state.features` conserva rutinas, marcas por fecha, días fuera, enlace de maleta y el recordatorio de retomar ChatGPT. Las reglas bloquean escrituras de versiones antiguas que eliminarían ese campo: recarga la web en todos tus dispositivos después de publicar.
+
+- Las rutinas se repiten a diario desde el día de alta. Puedes revisar lunes hasta hoy, en la zona horaria del navegador. El resumen es completadas / oportunidades aplicables de lunes hasta hoy; no cuenta días futuros ni anteriores al alta. «No aplica» excluye una tarea; «Día fuera» excluye todas las del día (se puede revertir, conservando las marcas). Cambiar una tarea de hecha a «No aplica» sustituye esa marca; volver a contar la deja pendiente. «Dejar de repetir» la archiva desde hoy y conserva días anteriores.
+- Al cambiar de día o volver a la pestaña se actualiza el checklist. El historial permanece local o sincronizado según tu sesión y se incluye en la copia JSON. Importar una copia antigua sin estas funciones conserva el checklist y la maleta actuales.
+- La maleta permite guardar un único enlace HTTPS de Keep. Tras cargar Calendar, se buscan palabras de viaje en título y ubicación de eventos que se solapan con esta semana. Es una sugerencia por palabras, no una confirmación de viaje, y solo funciona con la web abierta y el calendario conectado/actualizado. Se limpia al desconectar o fallar la actualización. No se leen ni modifican notas de Keep.
+- La consulta de maleta incorpora solo los posibles viajes de esta semana, permite revisar fechas, destino y necesidades, y se copia manualmente a ChatGPT. No consulta automáticamente la meteorología ni ejecuta un modelo. El borrador y los eventos no se guardan en Firestore ni se envían a ChatGPT.
+- El recordatorio de retomar «Preparar con ChatGPT» es una tarjeta visible hasta pulsar «Ya lo he revisado», no una notificación programada.
+
+Pruebas: `node --test tests/*.test.mjs`. Con servidor en puerto 8000, Chromium y Playwright: `node tests/daily.browser.cjs`; valida el flujo móvil con sincronización remota bloqueada y eventos de viaje simulados.

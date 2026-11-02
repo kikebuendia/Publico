@@ -7,5 +7,5 @@ export function nextRevision(remote, base) {
   return actual + 1;
 }
 export function hasData(data) {
-  return data.tasks.length + data.people.length + data.travels.length > 0 || !!data.meals || !!data.shopping;
+  return data.tasks.length + data.people.length + data.travels.length > 0 || !!data.meals || !!data.shopping || !!data.features?.routines?.length || !!data.features?.packingUrl;
 }
