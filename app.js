@@ -1,10 +1,10 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const key = 'mi-dia-v1';
+let key = 'mi-dia-v1';
 let state = { tasks: [], people: [], travels: [], meals: '', shopping: '' };
 try { const saved = JSON.parse(localStorage.getItem(key)); if (saved && ['tasks','people','travels'].every(k => Array.isArray(saved[k]))) state = {...state,...saved}; } catch { $('status').textContent = 'No se pudo leer el guardado anterior. Puedes empezar una lista nueva.'; }
 $('date').textContent = new Intl.DateTimeFormat('es', {weekday:'long',day:'numeric',month:'long'}).format(new Date());
-function save() { try { localStorage.setItem(key, JSON.stringify(state)); } catch { $('status').textContent = 'No se pudo guardar. Exporta una copia para conservar tus datos.'; } render(); }
+function save() { try { localStorage.setItem(key, JSON.stringify(state)); } catch { $('status').textContent = 'No se pudo guardar. Exporta una copia para conservar tus datos.'; } render(); window.dispatchEvent(new Event('mi-dia-change')); }
 function safeUrl(value, keep = false) { try { const u = new URL(value); return u.protocol === 'https:' && (!keep || u.hostname === 'keep.google.com') ? u.href : null; } catch { return null; } }
 function removeButton(action, label) { const b = document.createElement('button'); b.className = 'remove'; b.textContent = '×'; b.setAttribute('aria-label', label); b.onclick = action; return b; }
 function renderList(kind) { $(kind).replaceChildren(); state[kind].forEach((item,i) => { const li = document.createElement('li'); const check = document.createElement('input'); check.type = 'checkbox'; check.checked = !!item.done; check.setAttribute('aria-label', `${kind === 'people' ? 'Marcar llamada hecha a' : 'Completar'} ${item.text}`); check.onchange = () => { item.done = check.checked; save(); }; const text = document.createElement('span'); text.textContent = item.text; li.classList.toggle('done',!!item.done); li.append(check,text,removeButton(() => {state[kind].splice(i,1);save();}, `Eliminar ${item.text}`)); $(kind).append(li); }); }
@@ -123,7 +123,8 @@ $('import-file').onchange = async () => {
     catch { throw new Error('No se pudo guardar la copia en este navegador.'); }
     state = restored;
     render();
-    $('status').textContent = 'Copia restaurada y guardada en este navegador.';
+    window.dispatchEvent(new Event('mi-dia-change'));
+    $('status').textContent = 'Copia restaurada. Consulta arriba el estado de sincronización.';
   } catch (error) {
     $('status').textContent = `${error.message} No se han cambiado tus datos.`;
   } finally {
@@ -131,3 +132,17 @@ $('import-file').onchange = async () => {
   }
 };
 render();
+
+window.miDia = {
+  read: () => JSON.parse(JSON.stringify(state)),
+  validate: validateBackup,
+  useAccount(uid) { key = uid ? `mi-dia-account-${uid}` : 'mi-dia-v1'; },
+  apply(data) {
+    const next = validateBackup(data);
+    localStorage.setItem(key, JSON.stringify(next));
+    state = next; render();
+  },
+  lock(locked) {
+    document.querySelectorAll('.grid input, .grid button, #import, #settings input, #settings button').forEach(node => node.disabled = locked);
+  }
+};

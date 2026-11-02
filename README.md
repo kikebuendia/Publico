@@ -1,6 +1,6 @@
 # Mi día
 
-Panel personal adaptable a móvil, sin dependencias de instalación. Las listas funcionan sin cuenta; el calendario es opcional y requiere autorización de Google. Tareas, llamadas, acceso a la nota compartida de comidas y compra en Google Keep y búsquedas de viajes guardadas.
+Panel personal adaptable a móvil, sin dependencias de instalación. Las listas funcionan sin cuenta en modo local; la sincronización opcional usa Google y Firebase. el calendario es opcional y requiere autorización de Google. Tareas, llamadas, acceso a la nota compartida de comidas y compra en Google Keep y búsquedas de viajes guardadas.
 
 ## Ejecutar
 
@@ -10,11 +10,11 @@ Desde este directorio:
 python3 -m http.server 8000 --bind 0.0.0.0
 ```
 
-Los datos se guardan en localStorage del navegador y origen utilizados. No hay sincronización entre dispositivos ni copia en servidor. El botón «Exportar copia» descarga los datos como JSON. Para restaurar una copia, pulsa «Importar copia», selecciona el JSON exportado y confirma. La importación valida el contenido y reemplaza los datos actuales de este navegador, incluido el enlace de Keep; exporta antes si quieres conservarlos. Si cancelas, el archivo no es válido o falla el guardado, se mantienen los datos actuales. El tamaño máximo es 5 MB.
+Sin iniciar sesión, los datos se guardan en localStorage del navegador y origen utilizados. Con Firebase configurado y una sesión de Google, se guardan por cuenta en Firestore y se actualizan en los dispositivos conectados. Consulta el estado de sincronización en la tarjeta superior. El botón «Exportar copia» descarga los datos como JSON. Para restaurar una copia, pulsa «Importar copia», selecciona el JSON exportado y confirma. La importación valida el contenido y reemplaza los datos actuales de este navegador, incluido el enlace de Keep; exporta antes si quieres conservarlos. Si cancelas, el archivo no es válido o falla el guardado, se mantienen los datos actuales. El tamaño máximo es 5 MB.
 
 La nota compartida de comidas y compra permanece en Keep: configura su único enlace desde el panel. No hay integración con Gmail/Keep ni alertas automáticas de precios. Las fuentes de Google son opcionales; hay fuentes de respaldo locales.
 
-Para usarlo en el móvil fuera del entorno de desarrollo será necesario publicarlo en un alojamiento HTTPS. No incluye autenticación: evita usarlo en navegadores compartidos.
+Para usarlo en el móvil fuera del entorno de desarrollo será necesario publicarlo en un alojamiento HTTPS. La sesión de Google es persistente: cierra sesión si utilizas un navegador compartido. El modo local conserva sus datos en ese navegador.
 
 ## Publicar en GitHub Pages
 
@@ -41,3 +41,30 @@ Configuración inicial en https://console.cloud.google.com/:
 El ID público se guarda en este navegador, separado de las listas. Los tokens OAuth y eventos solo viven en memoria, no en localStorage, en el repositorio ni en las exportaciones JSON. Al recargar se necesita volver a conectar. Desconectar limpia las citas y solicita revocar el token. No se leen correos ni notas de Keep. No se modifican eventos.
 
 La conexión requiere HTTPS (o localhost en desarrollo) y acceso del navegador a `accounts.google.com` y `www.googleapis.com`. El SDK se carga al pulsar Conectar. No se requiere clave API ni secreto de cliente. Una conexión real solo puede verificarse con un ID OAuth válido y la autorización del propietario del calendario.
+
+
+## Activar inicio de sesión y sincronización (una sola vez)
+
+Esta versión incluye el código, pero no crea ni publica servicios de Firebase. Hasta completar esta configuración sigue funcionando en modo local.
+
+1. En [Firebase Console](https://console.firebase.google.com/), añade Firebase al **mismo proyecto de Google Cloud** utilizado para Calendar. Registra una aplicación **Web**.
+2. En **Authentication → Sign-in method**, activa **Google**, selecciona el correo de soporte y guarda. En **Authentication → Settings → Authorized domains**, añade `kikebuendia.github.io`. Para pruebas locales añade `localhost` si falta.
+3. Crea **Cloud Firestore** en modo de producción y elige la ubicación de almacenamiento. En la pestaña **Rules**, sustituye las reglas por el contenido completo de `firestore.rules` y pulsa **Publicar**. Estas reglas permiten leer y escribir únicamente el documento del usuario autenticado; no habilites reglas públicas de prueba.
+4. En **Configuración del proyecto → Tus aplicaciones → Web**, copia el objeto de configuración público en `cloud-config.js`, reemplazando `null`. Incluye `apiKey`, `authDomain`, `projectId` y `appId`. Estos identificadores son públicos; nunca incluyas claves de cuenta de servicio, secretos OAuth ni tokens. Si limitas la API key, permite las APIs necesarias para Firebase Authentication y Firestore, además del origen de la web.
+5. Mantén Calendar API habilitada y tu cuenta añadida como usuario de prueba de Google Auth Platform. Firebase solicita también el permiso `calendar.events.readonly` al entrar. Ya no hace falta introducir el ID de cliente de Calendar en cada dispositivo. Google puede pedir nuevamente consentimiento o bloquear cuentas no autorizadas mientras la aplicación esté en pruebas.
+6. Publica los archivos del repositorio en GitHub Pages. Entra primero desde el navegador donde tienes tus listas. Si la cuenta aún no tiene datos, se ofrece subir las listas locales; la copia local original se conserva. Entra con **la misma cuenta** desde el móvil.
+
+La aplicación usa inicio de sesión mediante ventana emergente; permite las ventanas de Google. La sesión de Firebase se conserva al recargar, pero Google Calendar tiene un permiso independiente y temporal: pulsa **Conectar Google Calendar** para renovarlo. No se guardan tokens de Calendar en las listas ni en Firestore, y no hay servidor que renueve permisos de Calendar en segundo plano.
+
+Las listas sincronizadas están en `users/{uid}/data/dashboard`. Se guardan mediante transacciones con revisión y se escuchan cambios en tiempo real. Una edición simultánea desde una revisión antigua se detiene y ofrece descargar los cambios locales antes de cargar la versión de la nube; no combina listas automáticamente. Los cambios pendientes se conservan localmente por cuenta y se reintentan al recuperar conexión. Espera a ver **Sincronizado** antes de cambiar de dispositivo. Salir restaura el modo local y conserva las copias de cada cuenta para próximos accesos.
+
+Si ya hay datos en la nube, se cargan esos datos; las listas previas del modo local no se mezclan ni se borran. Puedes recuperarlas cerrando sesión y exportándolas. Importar una copia mientras estás conectado reemplaza tus listas y, cuando el estado indique Sincronizado, también las de la nube. La configuración OAuth manual antigua y los tokens no se exportan ni sincronizan.
+
+### Comprobaciones antes de darlo por activado
+
+- Ejecutar `node --test tests/*.test.mjs` y las comprobaciones de sintaxis de los JavaScript.
+- Con el proyecto real: entrar desde dos navegadores con la misma cuenta; crear, completar y borrar un pendiente y comprobar que aparece en el otro. Recargar y verificar la sesión.
+- Probar desconexión y reconexión, edición simultánea y cambio de cuenta. Comprobar que otra cuenta no puede acceder al documento de la primera; validar las reglas con el emulador o Rules Playground antes de publicar datos reales.
+- Autorizar Calendar y comprobar las dos semanas; cerrar sesión y verificar que desaparecen las citas.
+
+Las pruebas locales de lógica no verifican por sí solas OAuth, las reglas desplegadas ni la comunicación con Firebase. Firebase aplica cuotas; revisa el uso del proyecto y sus condiciones antes de habilitar facturación.

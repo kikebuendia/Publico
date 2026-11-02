@@ -186,5 +186,16 @@
     disconnected('Calendario desconectado. Las citas se han retirado de la pantalla.');
     if (previous && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(previous, () => {});
   };
+  window.addEventListener('mi-dia-account-change', () => disconnected('Entra con Google para autorizar el calendario.'));
+  window.addEventListener('mi-dia-calendar-token', event => {
+    token = event.detail;
+    el('calendar-connect').hidden = true;
+    el('calendar-refresh').hidden = false;
+    el('calendar-refresh').disabled = false;
+    el('calendar-disconnect').hidden = false;
+    clearTimeout(expiryTimer);
+    expiryTimer = setTimeout(() => disconnected('Renueva el permiso de Google para ver tus citas.'), 3500 * 1000);
+    refresh();
+  });
   if (clientId) message('Pulsa Conectar Google Calendar para ver tus citas.');
 })();

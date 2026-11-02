@@ -4,3 +4,5 @@
 .voice-button{margin-top:12px;min-height:44px}.voice-button[aria-pressed="true"]{background:#8a432e}button:disabled{opacity:.55;cursor:wait}
 
 .calendar{margin-top:22px}.calendar-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.calendar-weeks{display:grid;grid-template-columns:1fr 1fr;gap:24px}.calendar-weeks[hidden]{display:none}.calendar h3{font-size:16px;margin:22px 0 0}.calendar li{flex-direction:column;align-items:flex-start;gap:6px}.calendar li small{color:#747c70;line-height:1.6}#calendar-config-form details{font-size:12px;line-height:1.7;overflow-wrap:anywhere}#calendar-config-form ol{padding-left:18px}#calendar-settings{max-height:90dvh;overflow:auto}@media(max-width:680px){.calendar-weeks{grid-template-columns:1fr;gap:0}}
+
+.account{margin-bottom:22px}.account #sync-status{font-size:13px;line-height:1.6}
