@@ -7,7 +7,70 @@ $('date').textContent = new Intl.DateTimeFormat('es', {weekday:'long',day:'numer
 function save() { try { localStorage.setItem(key, JSON.stringify(state)); } catch { $('status').textContent = 'No se pudo guardar. Exporta una copia para conservar tus datos.'; } render(); window.dispatchEvent(new Event('mi-dia-change')); }
 function safeUrl(value, keep = false) { try { const u = new URL(value); return u.protocol === 'https:' && (!keep || u.hostname === 'keep.google.com') ? u.href : null; } catch { return null; } }
 function removeButton(action, label) { const b = document.createElement('button'); b.className = 'remove'; b.textContent = '×'; b.setAttribute('aria-label', label); b.onclick = action; return b; }
-function renderList(kind) { $(kind).replaceChildren(); state[kind].forEach((item,i) => { const li = document.createElement('li'); const check = document.createElement('input'); check.type = 'checkbox'; check.checked = !!item.done; check.setAttribute('aria-label', `${kind === 'people' ? 'Marcar llamada hecha a' : 'Completar'} ${item.text}`); check.onchange = () => { item.done = check.checked; save(); }; const text = document.createElement('span'); text.textContent = item.text; li.classList.toggle('done',!!item.done); li.append(check,text,removeButton(() => {state[kind].splice(i,1);save();}, `Eliminar ${item.text}`)); $(kind).append(li); }); }
+let editingLocked = false;
+let assistedTask = null;
+function renderList(kind) {
+  $(kind).replaceChildren();
+  state[kind].forEach((item, i) => {
+    const li = document.createElement('li');
+    const check = document.createElement('input');
+    check.type = 'checkbox'; check.checked = !!item.done;
+    check.setAttribute('aria-label', `${kind === 'people' ? 'Marcar llamada hecha a' : 'Completar'} ${item.text}`);
+    check.onchange = () => { item.done = check.checked; save(); };
+    const content = document.createElement('div'); content.className = 'list-content';
+    const text = document.createElement('span'); text.textContent = item.text; content.append(text);
+    if (kind === 'tasks') {
+      const step = document.createElement('small'); step.className = 'next-step';
+      step.textContent = item.nextStep ? `Próximo paso: ${item.nextStep}` : 'Sin próximo paso todavía';
+      const help = document.createElement('button'); help.type = 'button'; help.className = 'task-help secondary';
+      help.textContent = 'Preparar con ChatGPT'; help.setAttribute('aria-label', `Preparar con ChatGPT: ${item.text}`);
+      help.onclick = () => openTaskHelp(item);
+      content.append(step, help);
+    }
+    li.classList.toggle('done', !!item.done);
+    li.append(check, content, removeButton(() => { state[kind].splice(i, 1); save(); }, `Eliminar ${item.text}`));
+    li.querySelectorAll('button, input').forEach(node => node.disabled = editingLocked);
+    $(kind).append(li);
+  });
+}
+function taskPrompt() {
+  const lines = [
+    'Ayúdame a resolver este pendiente:', $('help-title').textContent,
+    $('help-step').value.trim() ? `Próximo paso previsto: ${$('help-step').value.trim()}` : '',
+    $('help-context').value.trim() ? `Contexto que quiero compartir: ${$('help-context').value.trim()}` : '',
+    'Propón el siguiente paso concreto y un plan breve. Si puedes preparar un borrador, una comparación o material útil, hazlo. Pregunta solo por los datos imprescindibles que falten y no inventes información. No envíes mensajes ni realices compras sin mi autorización.'
+  ];
+  return lines.filter(Boolean).join('\n\n');
+}
+function updateTaskPrompt() { $('help-prompt').value = taskPrompt(); $('help-status').textContent = ''; }
+function openTaskHelp(item) {
+  assistedTask = item;
+  $('help-title').textContent = item.text;
+  $('help-step').value = item.nextStep || '';
+  $('help-context').value = '';
+  updateTaskPrompt(); $('task-help-dialog').showModal();
+}
+$('help-step').oninput = updateTaskPrompt;
+$('help-context').oninput = updateTaskPrompt;
+$('help-close').onclick = () => $('task-help-dialog').close();
+$('help-save').onclick = () => {
+  if (editingLocked || !state.tasks.includes(assistedTask)) {
+    $('help-status').textContent = 'La lista cambió. Cierra esta ventana y abre de nuevo el pendiente antes de guardar.'; return;
+  }
+  assistedTask.nextStep = $('help-step').value.trim(); save();
+  $('help-status').textContent = 'Próximo paso guardado. Consulta arriba el estado de sincronización.';
+};
+$('help-copy').onclick = async () => {
+  const prompt = $('help-prompt').value;
+  try {
+    await navigator.clipboard.writeText(prompt);
+    $('help-status').textContent = 'Petición copiada. Abre ChatGPT y pégala en una conversación.';
+  } catch {
+    $('help-prompt').focus(); $('help-prompt').select();
+    $('help-status').textContent = 'No se pudo copiar automáticamente. Copia el texto seleccionado y pégalo en ChatGPT.';
+  }
+};
+
 function render() { renderList('tasks'); renderList('people'); $('empty').hidden = state.tasks.length > 0; $('people-empty').hidden = state.people.length > 0; $('count').textContent = state.tasks.filter(t => !t.done).length; $('meals-link').href = safeUrl(state.meals,true) || 'https://keep.google.com/'; $('travels').replaceChildren(); state.travels.forEach((item,i) => { const li = document.createElement('li'); const a = document.createElement('a'); a.textContent = item.text + ' ↗'; a.href = safeUrl(item.url) || '#'; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.append(a,removeButton(() => {state.travels.splice(i,1);save();},`Eliminar ${item.text}`)); $('travels').append(li); }); }
 for (const [form,input,kind] of [['task-form','task','tasks'],['person-form','person','people']]) $(form).onsubmit = e => {e.preventDefault();const text = $(input).value.trim();if(!text)return;state[kind].push({text,done:false});$(input).value='';save();$(input).focus();};
 // El dictado solo rellena el borrador: el usuario decide cuándo añadirlo.
@@ -98,8 +161,11 @@ function validateBackup(data) {
       throw new Error('La copia contiene enlaces de Keep no válidos.');
     }
   }
+  if (data.tasks.some(item => item.nextStep !== undefined && (typeof item.nextStep !== 'string' || item.nextStep.length > 500))) {
+    throw new Error('La copia contiene un próximo paso no válido (máximo 500 caracteres).');
+  }
   return {
-    tasks: data.tasks.map(({text, done}) => ({text, done})),
+    tasks: data.tasks.map(({text, done, nextStep}) => ({text, done, ...(nextStep === undefined ? {} : {nextStep})})),
     people: data.people.map(({text, done}) => ({text, done})),
     travels: data.travels.map(({text, url}) => ({text, url})),
     meals: data.meals, shopping: typeof data.shopping === 'string' ? data.shopping : ''
@@ -143,6 +209,7 @@ window.miDia = {
     state = next; render();
   },
   lock(locked) {
-    document.querySelectorAll('.grid input, .grid button, #import, #settings input, #settings button').forEach(node => node.disabled = locked);
+    editingLocked = locked;
+    document.querySelectorAll('.grid input, .grid button, #import, #settings input, #settings button, #help-save').forEach(node => node.disabled = locked);
   }
 };

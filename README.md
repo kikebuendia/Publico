@@ -68,3 +68,12 @@ Si ya hay datos en la nube, se cargan esos datos; las listas previas del modo lo
 - Autorizar Calendar y comprobar las dos semanas; cerrar sesión y verificar que desaparecen las citas.
 
 Las pruebas locales de lógica no verifican por sí solas OAuth, las reglas desplegadas ni la comunicación con Firebase. Firebase aplica cuotas; revisa el uso del proyecto y sus condiciones antes de habilitar facturación.
+
+
+## Preparar un pendiente con ChatGPT
+
+Cada pendiente tiene un botón **Preparar con ChatGPT**. Permite guardar un **próximo paso** (hasta 500 caracteres), que se incluye en la sincronización y en las copias JSON. Las copias antiguas siguen siendo compatibles.
+
+Puedes añadir contexto temporal, revisar o editar la petición, pulsar **Copiar petición** y abrir ChatGPT para pegarla. La web no envía automáticamente datos a ChatGPT ni necesita una clave de OpenAI. El contexto temporal no se guarda en las listas. Al cambiar el próximo paso o el contexto se regenera la petición.
+
+Validación de interfaz: con el servidor local en el puerto 8000, Playwright y Chromium disponibles, ejecutar `node tests/task-help.browser.cjs` (opcionalmente `CHROMIUM_PATH`). Esta prueba usa un navegador nuevo y bloquea la sincronización remota: comprueba la interfaz móvil, el portapapeles, la persistencia local y la conservación del nuevo campo al validar datos, sin acceder a cuentas reales.
