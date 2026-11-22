@@ -15,7 +15,12 @@ service cloud.firestore {
           && request.resource.data.state.travels is list
           && request.resource.data.state.meals is string
           && request.resource.data.state.shopping is string
-          && (!('features' in request.resource.data.state) || request.resource.data.state.features is map)
+          && (!('features' in request.resource.data.state) || (
+            request.resource.data.state.features is map
+            && (!('personal' in request.resource.data.state.features) || request.resource.data.state.features.personal is map)
+            && request.resource.data.state.features.get('taskChecklists', true) == true
+            && request.resource.data.state.features.get('menu', {}) is map
+          ))
           && request.resource.data.updatedAt == request.time;
       }
       allow read: if owner();
@@ -23,6 +28,12 @@ service cloud.firestore {
         && request.resource.data.revision == 1;
       allow update: if owner() && validData()
         && (!('features' in resource.data.state) || ('features' in request.resource.data.state))
+        && (!('features' in resource.data.state) || !('personal' in resource.data.state.features)
+          || ('features' in request.resource.data.state && 'personal' in request.resource.data.state.features))
+        && (!resource.data.state.get('features', {}).get('taskChecklists', false)
+          || request.resource.data.state.get('features', {}).get('taskChecklists', false))
+        && (!('menu' in resource.data.state.get('features', {}))
+          || 'menu' in request.resource.data.state.get('features', {}))
         && request.resource.data.revision == resource.data.revision + 1;
     }
   }

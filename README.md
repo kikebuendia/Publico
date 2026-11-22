@@ -22,9 +22,9 @@ En GitHub, abre **Settings → Pages** del repositorio. Selecciona **Deploy from
 
 La web publicada no contiene los pendientes ni las notas personales: estos se introducen en el navegador. Cada navegador mantiene sus propios datos. El enlace de Keep sigue requiriendo acceso a la nota en Google.
 
-## Dictar pendientes
+## Dictar recados
 
-En Chrome para Android, pulsa «Dictar pendiente», permite el micrófono y habla en español. Revisa el texto y pulsa + para añadirlo; nunca se guarda automáticamente. Si ya habías escrito un borrador, el dictado se añade al final (máximo 200 caracteres). Puedes terminar el dictado con el mismo botón. Requiere HTTPS (o localhost para desarrollo) y un navegador compatible con SpeechRecognition/webkitSpeechRecognition. El servicio del navegador puede necesitar Internet y procesar audio fuera del dispositivo. Si no está disponible, puedes escribir o usar el micrófono del teclado.
+En Chrome para Android, pulsa «Dictar recado», permite el micrófono y habla en español. Revisa el texto y pulsa + para añadirlo; nunca se guarda automáticamente. Si ya habías escrito un borrador, el dictado se añade al final (máximo 200 caracteres). Puedes terminar el dictado con el mismo botón. Requiere HTTPS (o localhost para desarrollo) y un navegador compatible con SpeechRecognition/webkitSpeechRecognition. El servicio del navegador puede necesitar Internet y procesar audio fuera del dispositivo. Si no está disponible, puedes escribir o usar el micrófono del teclado.
 
 ## Calendario de Google (opcional, solo lectura)
 
@@ -70,9 +70,13 @@ Si ya hay datos en la nube, se cargan esos datos; las listas previas del modo lo
 Las pruebas locales de lógica no verifican por sí solas OAuth, las reglas desplegadas ni la comunicación con Firebase. Firebase aplica cuotas; revisa el uso del proyecto y sus condiciones antes de habilitar facturación.
 
 
-## Preparar un pendiente con ChatGPT
+## Recados y próximos pasos
 
-Cada pendiente tiene un botón **Preparar con ChatGPT**. Permite guardar un **próximo paso** (hasta 500 caracteres), que se incluye en la sincronización y en las copias JSON. Las copias antiguas siguen siendo compatibles.
+En **Recados**, abre **Añadir pasos** o **Pasos** para desglosar un recado y marcar cada paso por separado. El panel muestra el primer paso pendiente y el progreso. Puedes dar el recado por terminado con su casilla general.
+
+Cada recado tiene un botón **Preparar con ChatGPT**. Permite editar y guardar el primer paso pendiente (hasta 500 caracteres). Los pasos se incluyen en la sincronización y en las copias JSON. Las copias antiguas que tengan un próximo paso lo muestran como el primer paso del recado.
+
+Publica el archivo actualizado `firestore.rules` y recarga Mi Día en los dispositivos conectados. Las reglas protegen los checklists de escrituras desde versiones que todavía no los reconocen.
 
 Puedes añadir contexto temporal, revisar o editar la petición, pulsar **Copiar petición** y abrir ChatGPT para pegarla. La web no envía automáticamente datos a ChatGPT ni necesita una clave de OpenAI. El contexto temporal no se guarda en las listas. Al cambiar el próximo paso o el contexto se regenera la petición.
 
@@ -81,12 +85,12 @@ Validación de interfaz: con el servidor local en el puerto 8000, Playwright y C
 
 ## Checklist diario y maleta
 
-Antes de usar la sincronización de estas funciones, **actualiza las reglas publicadas de Firestore con el archivo `firestore.rules` completo**. El nuevo campo opcional `state.features` conserva rutinas, marcas por fecha, días fuera, enlace de maleta y el recordatorio de retomar ChatGPT. Las reglas bloquean escrituras de versiones antiguas que eliminarían ese campo: recarga la web en todos tus dispositivos después de publicar.
+Antes de usar la sincronización de estas funciones, **actualiza las reglas publicadas de Firestore con el archivo `firestore.rules` completo**. El nuevo campo opcional `state.features` conserva rutinas, marcas por fecha, días fuera, enlace de maleta y el menú importado. Las reglas bloquean escrituras de versiones antiguas que eliminarían ese campo: recarga la web en todos tus dispositivos después de publicar.
 
 - Las rutinas se repiten a diario desde el día de alta. Puedes revisar lunes hasta hoy, en la zona horaria del navegador. El resumen es completadas / oportunidades aplicables de lunes hasta hoy; no cuenta días futuros ni anteriores al alta. «No aplica» excluye una tarea; «Día fuera» excluye todas las del día (se puede revertir, conservando las marcas). Cambiar una tarea de hecha a «No aplica» sustituye esa marca; volver a contar la deja pendiente. «Dejar de repetir» la archiva desde hoy y conserva días anteriores.
 - Al cambiar de día o volver a la pestaña se actualiza el checklist. El historial permanece local o sincronizado según tu sesión y se incluye en la copia JSON. Importar una copia antigua sin estas funciones conserva el checklist y la maleta actuales.
 - La maleta permite guardar un único enlace HTTPS de Keep. Tras cargar Calendar, se buscan palabras de viaje en título y ubicación de eventos que se solapan con esta semana. Es una sugerencia por palabras, no una confirmación de viaje, y solo funciona con la web abierta y el calendario conectado/actualizado. Se limpia al desconectar o fallar la actualización. No se leen ni modifican notas de Keep.
 - La consulta de maleta incorpora solo los posibles viajes de esta semana, permite revisar fechas, destino y necesidades, y se copia manualmente a ChatGPT. No consulta automáticamente la meteorología ni ejecuta un modelo. El borrador y los eventos no se guardan en Firestore ni se envían a ChatGPT.
-- El recordatorio de retomar «Preparar con ChatGPT» es una tarjeta visible hasta pulsar «Ya lo he revisado», no una notificación programada.
+- En **¿Qué cenamos?**, pega los días y platos de la nota y elige una fecha de esa semana. Se muestran las cenas de hoy y mañana según la fecha local. La casilla **Descongelar** usa la proteína de mañana cuando la reconoce o cuando la indicas con una línea «Proteína: …» debajo del plato.
 
 Pruebas: `node --test tests/*.test.mjs`. Con servidor en puerto 8000, Chromium y Playwright: `node tests/daily.browser.cjs`; valida el flujo móvil con sincronización remota bloqueada y eventos de viaje simulados.

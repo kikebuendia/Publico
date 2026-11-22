@@ -11,11 +11,11 @@ test('migración, edición, conflicto y aislamiento al salir con Firebase simula
     return nodes.get(id);
   };
   const listeners = new Map(), storage = new Map();
-  let state = {...emptyState(), tasks: [{text: 'Original local', done: false}]};
-  let account, authListener, snapshotListener, remote = null, writes = 0;
+  let state = {...emptyState(), tasks: [{text: 'Original local', done: false, steps: [{text: 'Pedir cita', done: false}]}]};
+  let account, authListener, snapshotListener, remote = null, writes = 0, applications = 0;
   const app = {
     read: () => structuredClone(state), validate: data => structuredClone(data),
-    apply: data => { state = structuredClone(data); }, useAccount: uid => { account = uid; }, lock() {}
+    apply: data => { state = structuredClone(data); applications++; }, useAccount: uid => { account = uid; }, lock() {}
   };
   const auth = {currentUser: null};
   const authSdk = {
@@ -33,7 +33,7 @@ test('migración, edición, conflicto y aislamiento al salir con Firebase simula
     })
   };
   let source = await readFile(new URL('../sync.js', import.meta.url), 'utf8');
-  source = source.replace("import {emptyState, nextRevision, hasData} from './sync-core.mjs';", '');
+  source = source.replace("import {emptyState, nextRevision, hasData} from './sync-core.mjs?v=menu-1';", '');
   const begin = source.indexOf('  const [{initializeApp}');
   const end = source.indexOf('  const auth =', begin);
   source = source.slice(0, begin) + '  const {initializeApp, authSdk, dbSdk} = mocks;\n' + source.slice(end);
@@ -54,10 +54,16 @@ test('migración, edición, conflicto y aislamiento al salir con Firebase simula
   snapshotListener(snap()); await tick();
   assert.equal(writes, 1);
   assert.equal(remote.state.tasks[0].text, 'Original local');
+  assert.deepEqual(remote.state.tasks[0].steps, [{text: 'Pedir cita', done: false}]);
+  state.tasks[0].steps[0].done = true;
   state.tasks.push({text: 'Desde ordenador', done: false});
   listeners.get('mi-dia-change')(); await tick();
   assert.equal(remote.revision, 2);
   assert.equal(remote.state.tasks.length, 2);
+  assert.equal(remote.state.tasks[0].steps[0].done, true);
+  const appliedBeforeEcho = applications;
+  snapshotListener(snap()); await tick();
+  assert.equal(applications, appliedBeforeEcho, 'la notificación del propio guardado conserva los controles abiertos');
   // Otro dispositivo guarda antes de la siguiente edición local.
   remote.revision = 3;
   remote.state.tasks.push({text: 'Desde móvil', done: false});
@@ -70,5 +76,6 @@ test('migración, edición, conflicto y aislamiento al salir con Firebase simula
   assert.equal(account, undefined);
   assert.equal(state.tasks.length, 1, 'salir restaura las listas locales originales');
   assert.equal(state.tasks[0].text, 'Original local');
+  assert.equal(state.tasks[0].steps[0].done, false);
   assert.equal(el('sign-in').hidden, false);
 });

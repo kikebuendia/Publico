@@ -7,16 +7,16 @@ test('semanas lunes-domingo y fecha local, sin contar días futuros ni previos a
   assert.deepEqual(core.weekDays(now),['2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30','2026-10-31','2026-11-01']);
   f.routines=[routine('a'),routine('b','2026-10-28')];
   f.records={'2026-10-26':{a:'done'},'2026-10-28':{b:'skip'}};
-  assert.deepEqual(core.summary(f,now),{done:1,total:3,skipped:1,percent:33});
+  assert.deepEqual(core.summary(f,now),{done:1,total:6,skipped:1,percent:17});
   f.away['2026-10-27']=true;
-  assert.deepEqual(core.summary(f,now),{done:1,total:2,skipped:2,percent:50});
+  assert.deepEqual(core.summary(f,now),{done:1,total:4,skipped:3,percent:25});
   f.away['2026-10-26']=true;f.away['2026-10-28']=true;
   assert.equal(core.summary(f,now).percent,null);
 });
 test('archivar conserva las oportunidades anteriores y semana nueva empieza a cero',()=>{
   const f=core.defaults();f.routines=[{...routine('a'),end:'2026-10-28'}];
-  assert.equal(core.summary(f,new Date(2026,9,28,12)).total,2);
-  assert.equal(core.summary(f,new Date(2026,10,2,12)).total,0);
+  assert.equal(core.summary(f,new Date(2026,9,28,12)).total,5);
+  assert.equal(core.summary(f,new Date(2026,10,2,12)).total,1);
 });
 test('validación conserva registros, rechaza URLs inseguras, fechas imposibles y marcas desconocidas',()=>{
   const f=core.defaults();f.routines=[routine('a')];f.records={'2026-10-26':{a:'done'}};
@@ -29,4 +29,19 @@ test('viajes solo de esta semana, incluidos los que cruzan lunes; no cancelados 
   const event=(summary,start,end,status)=>({summary,start:{date:start},end:{date:end},status});
   const events=[event('Vuelo Madrid','2026-10-28','2026-10-29'),event('Hotel','2026-10-25','2026-10-27'),event('Hotel','2026-10-25','2026-10-26'),event('Viaje','2026-11-02','2026-11-03'),event('Tren','2026-10-28','2026-10-29','cancelled'),event('Reunión','2026-10-28','2026-10-29')];
   assert.equal(core.trips(events,new Date(2026,9,28,12)).length,2);
+});
+
+test('menú fechado, proteína expresa y casilla fija por día', async () => {
+  const {default: menu} = await import('../menu-core.js');
+  const week = core.weekDays(new Date(2026, 10, 23, 12));
+  const data = core.defaults();
+  data.menu = menu.parse('Lunes\nMerluza al horno\nMartes: Pasta con salmón\nMiércoles 25\nGuiso\nProteína: secreto ibérico\nCompra\nHuevos', week);
+  assert.deepEqual(Object.keys(data.menu), week.slice(0, 3));
+  assert.equal(menu.proteinFor(data.menu['2026-11-24']), 'salmón');
+  assert.equal(menu.proteinFor(data.menu['2026-11-25']), 'secreto ibérico');
+  assert.equal(menu.proteinFor({dish: 'Ensalada', protein: ''}), '');
+  assert.equal(core.tomorrow('2026-11-29'), '2026-11-30');
+  data.records = {'2026-11-23': {[core.thawId]: 'done'}};
+  assert.deepEqual(core.validate(data), data);
+  assert.equal(core.summary(data, new Date(2026, 10, 23, 12)).percent, 100);
 });

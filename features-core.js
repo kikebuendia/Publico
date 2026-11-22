@@ -1,6 +1,13 @@
 'use strict';
 (function(root) {
+  const personal = typeof module !== 'undefined' ? require('./personal-core.js') : root.miDiaPersonalCore;
   const dayKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const thawId = 'menu-descongelar';
+  function tomorrow(day) {
+    const date = new Date(day + 'T12:00:00');
+    date.setDate(date.getDate() + 1);
+    return dayKey(date);
+  }
   function weekDays(now = new Date()) {
     const start = new Date(now); start.setHours(12,0,0,0); start.setDate(start.getDate() - (start.getDay()+6)%7);
     return Array.from({length:7}, (_, i) => {const date = new Date(start); date.setDate(start.getDate()+i); return dayKey(date);});
@@ -14,16 +21,27 @@
     const map = v => v && typeof v === 'object' && !Array.isArray(v);
     if (!Array.isArray(routines) || !routines.every(r => r && typeof r.id === 'string' && /^[a-zA-Z0-9-]{1,80}$/.test(r.id) && typeof r.text === 'string' && r.text.trim() && r.text.length <= 200 && date(r.start) && (!r.end || date(r.end)))) throw Error('Rutinas no válidas.');
     if (new Set(routines.map(r=>r.id)).size !== routines.length || !map(records) || !map(away)) throw Error('Historial diario no válido.');
-    for (const [d, items] of Object.entries(records)) if (!date(d) || !map(items) || !Object.entries(items).every(([id,status])=>routines.some(r=>r.id===id) && ['done','skip'].includes(status))) throw Error('Marcas diarias no válidas.');
+    for (const [d, items] of Object.entries(records)) if (!date(d) || !map(items) || !Object.entries(items).every(([id,status])=>(id === thawId || routines.some(r=>r.id===id)) && ['done','skip'].includes(status))) throw Error('Marcas diarias no válidas.');
     for (const [d, flag] of Object.entries(away)) if (!date(d) || typeof flag !== 'boolean') throw Error('Días fuera no válidos.');
     if (typeof packingUrl !== 'string' || typeof remindChatGPT !== 'boolean') throw Error('Configuración de maleta no válida.');
     if (packingUrl) {const url=new URL(packingUrl);if(url.protocol!=='https:' || url.hostname!=='keep.google.com')throw Error('Usa un enlace HTTPS de Google Keep.');}
-    return {routines:routines.map(({id,text,start,end})=>({id,text,start,...(end?{end}:{})})), records:JSON.parse(JSON.stringify(records)), away:{...away}, packingUrl, remindChatGPT};
+    if (value.menu !== undefined && (!map(value.menu) || !Object.entries(value.menu).every(([day, entry]) =>
+      date(day) && entry && typeof entry.dish === 'string' && entry.dish.trim() && entry.dish.length <= 400
+        && typeof entry.protein === 'string' && entry.protein.length <= 100))) throw Error('Menú no válido.');
+    if (value.taskChecklists !== undefined && value.taskChecklists !== true) throw Error('Configuración de checklist de recados no válida.');
+    return {
+      routines:routines.map(({id,text,start,end})=>({id,text,start,...(end?{end}:{})})),
+      records:JSON.parse(JSON.stringify(records)), away:{...away}, packingUrl, remindChatGPT,
+      ...(value.personal === undefined ? {} : {personal: personal.validate(value.personal)}),
+      ...(value.menu === undefined ? {} : {menu: Object.fromEntries(Object.entries(value.menu).map(([day, {dish, protein}]) => [day, {dish, protein}]))}),
+      ...(value.taskChecklists ? {taskChecklists: true} : {})
+    };
   }
   const due = (r,d) => r.start <= d && (!r.end || d < r.end);
+  const routinesFor = (features, day) => [{id: thawId}, ...features.routines.filter(r => due(r, day))];
   function summary(features, now = new Date()) {
     let done=0, total=0, skipped=0;
-    for (const day of weekDays(now).filter(d=>d<=dayKey(now))) for (const routine of features.routines.filter(r=>due(r,day))) {
+    for (const day of weekDays(now).filter(d=>d<=dayKey(now))) for (const routine of routinesFor(features, day)) {
       const status=features.records[day]?.[routine.id];
       if(features.away[day] || status==='skip') {skipped++;continue;}
       total++;if(status==='done')done++;
@@ -35,6 +53,6 @@
     const date = v => new Date(v?.dateTime || (v?.date ? v.date+'T00:00:00' : NaN));
     return events.filter(e => e.status!=='cancelled' && date(e.start)<end && date(e.end)>start && /\b(viaje|vuelo|flight|hotel|tren|train|aeropuerto|airport|vacaciones|travel|escapada)\b/i.test(`${e.summary||''} ${e.location||''}`));
   }
-  const api={dayKey,weekDays,defaults,validate,due,summary,trips};
+  const api={dayKey,tomorrow,weekDays,defaults,validate,due,routinesFor,thawId,summary,trips};
   if (typeof module!=='undefined') module.exports=api; else root.miDiaFeaturesCore=api;
 })(globalThis);

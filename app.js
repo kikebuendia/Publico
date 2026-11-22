@@ -9,6 +9,117 @@ function safeUrl(value, keep = false) { try { const u = new URL(value); return u
 function removeButton(action, label) { const b = document.createElement('button'); b.className = 'remove'; b.textContent = '×'; b.setAttribute('aria-label', label); b.onclick = action; return b; }
 let editingLocked = false;
 let assistedTask = null;
+const taskChecklists = new WeakMap();
+const taskStepLimit = 500;
+
+function taskSteps(item) {
+  if (item.steps) return item.steps;
+  const text = item.nextStep?.trim();
+  return text ? [{text, done: false}] : [];
+}
+
+function enableTaskChecklists(data) {
+  // Firestore uses this flag to stop older clients from dropping the checklist fields.
+  data.features ??= window.miDiaFeaturesCore.defaults();
+  data.features.taskChecklists = true;
+}
+
+function saveTaskSteps(item, steps) {
+  if (editingLocked || !state.tasks.includes(item)) return;
+  item.steps = steps;
+  delete item.nextStep;
+  enableTaskChecklists(state);
+  save();
+}
+
+function renderTaskChecklist(item, steps) {
+  const details = document.createElement('details');
+  details.className = 'task-checklist';
+  details.open = taskChecklists.get(item)?.open ?? false;
+  taskChecklists.set(item, details);
+
+  const summary = document.createElement('summary');
+  const done = steps.filter(step => step.done).length;
+  summary.textContent = steps.length ? `Pasos · ${done}/${steps.length}` : 'Añadir pasos';
+  const list = document.createElement('ul');
+  list.className = 'task-step-list';
+  const form = document.createElement('form');
+  form.className = 'task-step-form';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.required = true;
+  input.maxLength = taskStepLimit;
+  input.placeholder = 'Nuevo paso';
+  input.setAttribute('aria-label', `Paso de ${item.text}`);
+  const submit = document.createElement('button');
+  submit.textContent = 'Añadir paso';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'secondary';
+  cancel.textContent = 'Cancelar';
+  cancel.hidden = true;
+  form.append(input, submit, cancel);
+
+  function updateChecklist(nextSteps, focus = '.task-step-form input') {
+    saveTaskSteps(item, nextSteps);
+    taskChecklists.get(item).querySelector(focus)?.focus({preventScroll: true});
+  }
+
+  let editingIndex = -1;
+  cancel.onclick = () => {
+    editingIndex = -1;
+    form.reset();
+    submit.textContent = 'Añadir paso';
+    cancel.hidden = true;
+    input.focus();
+  };
+  form.onsubmit = event => {
+    event.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    const next = steps.slice();
+    if (editingIndex < 0) next.push({text, done: false});
+    else next[editingIndex] = {...steps[editingIndex], text};
+    updateChecklist(next);
+  };
+
+  for (const [index, step] of steps.entries()) {
+    const row = document.createElement('li');
+    row.classList.toggle('done', step.done);
+    row.dataset.stepIndex = index;
+    const label = document.createElement('label');
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.checked = step.done;
+    check.onchange = () => {
+      const next = steps.slice();
+      next[index] = {...step, done: check.checked};
+      updateChecklist(next, `[data-step-index="${index}"] input`);
+    };
+    const text = document.createElement('span');
+    text.textContent = step.text;
+    label.append(check, text);
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'text-button';
+    edit.textContent = 'Editar';
+    edit.setAttribute('aria-label', `Editar paso ${step.text}`);
+    edit.onclick = () => {
+      editingIndex = index;
+      input.value = step.text;
+      submit.textContent = 'Guardar paso';
+      cancel.hidden = false;
+      input.focus();
+    };
+    const remove = removeButton(() => updateChecklist(steps.filter((_, i) => i !== index)), `Eliminar paso ${step.text}`);
+    row.append(label, edit, remove);
+    list.append(row);
+  }
+  details.append(summary, list, form);
+  return details;
+}
+
 function renderList(kind) {
   $(kind).replaceChildren();
   state[kind].forEach((item, i) => {
@@ -20,12 +131,18 @@ function renderList(kind) {
     const content = document.createElement('div'); content.className = 'list-content';
     const text = document.createElement('span'); text.textContent = item.text; content.append(text);
     if (kind === 'tasks') {
-      const step = document.createElement('small'); step.className = 'next-step';
-      step.textContent = item.nextStep ? `Próximo paso: ${item.nextStep}` : 'Sin próximo paso todavía';
+      const steps = taskSteps(item);
+      const next = steps.find(step => !step.done);
+      if (next && !item.done) {
+        const preview = document.createElement('small');
+        preview.className = 'next-step';
+        preview.textContent = `Próximo paso: ${next.text}`;
+        content.append(preview);
+      }
       const help = document.createElement('button'); help.type = 'button'; help.className = 'task-help secondary';
       help.textContent = 'Preparar con ChatGPT'; help.setAttribute('aria-label', `Preparar con ChatGPT: ${item.text}`);
       help.onclick = () => openTaskHelp(item);
-      content.append(step, help);
+      content.append(renderTaskChecklist(item, steps), help);
     }
     li.classList.toggle('done', !!item.done);
     li.append(check, content, removeButton(() => { state[kind].splice(i, 1); save(); }, `Eliminar ${item.text}`));
@@ -35,7 +152,7 @@ function renderList(kind) {
 }
 function taskPrompt() {
   const lines = [
-    'Ayúdame a resolver este pendiente:', $('help-title').textContent,
+    'Ayúdame a resolver este recado:', $('help-title').textContent,
     $('help-step').value.trim() ? `Próximo paso previsto: ${$('help-step').value.trim()}` : '',
     $('help-context').value.trim() ? `Contexto que quiero compartir: ${$('help-context').value.trim()}` : '',
     'Propón el siguiente paso concreto y un plan breve. Si puedes preparar un borrador, una comparación o material útil, hazlo. Pregunta solo por los datos imprescindibles que falten y no inventes información. No envíes mensajes ni realices compras sin mi autorización.'
@@ -46,7 +163,7 @@ function updateTaskPrompt() { $('help-prompt').value = taskPrompt(); $('help-sta
 function openTaskHelp(item) {
   assistedTask = item;
   $('help-title').textContent = item.text;
-  $('help-step').value = item.nextStep || '';
+  $('help-step').value = taskSteps(item).find(step => !step.done)?.text ?? '';
   $('help-context').value = '';
   updateTaskPrompt(); $('task-help-dialog').showModal();
 }
@@ -55,9 +172,24 @@ $('help-context').oninput = updateTaskPrompt;
 $('help-close').onclick = () => $('task-help-dialog').close();
 $('help-save').onclick = () => {
   if (editingLocked || !state.tasks.includes(assistedTask)) {
-    $('help-status').textContent = 'La lista cambió. Cierra esta ventana y abre de nuevo el pendiente antes de guardar.'; return;
+    $('help-status').textContent = 'La lista cambió. Cierra esta ventana y abre de nuevo el recado antes de guardar.'; return;
   }
-  assistedTask.nextStep = $('help-step').value.trim(); save();
+  const text = $('help-step').value.trim();
+  if (assistedTask.steps) {
+    if (!text) {
+      $('help-status').textContent = 'Escribe un próximo paso para guardarlo en el checklist.';
+      return;
+    }
+    const steps = assistedTask.steps.slice();
+    const index = steps.findIndex(step => !step.done);
+    const step = {text, done: false};
+    if (index >= 0) steps[index] = step;
+    else steps.push(step);
+    saveTaskSteps(assistedTask, steps);
+  } else {
+    assistedTask.nextStep = text;
+    save();
+  }
   $('help-status').textContent = 'Próximo paso guardado. Consulta arriba el estado de sincronización.';
 };
 $('help-copy').onclick = async () => {
@@ -77,7 +209,7 @@ for (const [form,input,kind] of [['task-form','task','tasks'],['person-form','pe
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let dictation = null;
 function resetVoice() {
-  $('voice-task').textContent = '🎙 Dictar pendiente';
+  $('voice-task').textContent = '🎙 Dictar recado';
   $('voice-task').setAttribute('aria-pressed', 'false');
   $('task-form').querySelector('button').disabled = false;
 }
@@ -107,7 +239,7 @@ $('voice-task').onclick = () => {
     $('task').value = full.slice(0, $('task').maxLength);
     $('voice-status').textContent = full.length > $('task').maxLength
       ? 'El texto se ha recortado a 200 caracteres. Revísalo y pulsa + para añadirlo.'
-      : 'Revisa el texto y pulsa + para añadir el pendiente.';
+      : 'Revisa el texto y pulsa + para añadir el recado.';
   };
   recognition.onerror = event => {
     failed = true;
@@ -115,7 +247,7 @@ $('voice-task').onclick = () => {
       'not-allowed': 'No hay permiso para usar el micrófono. Permítelo en los ajustes del sitio de Chrome o usa el teclado.',
       'service-not-allowed': 'El navegador no permite el servicio de dictado. Prueba con el micrófono del teclado.',
       'audio-capture': 'No se pudo acceder al micrófono. Comprueba que está disponible.',
-      'no-speech': 'No se ha detectado voz. Pulsa Dictar pendiente para intentarlo otra vez.',
+      'no-speech': 'No se ha detectado voz. Pulsa Dictar recado para intentarlo otra vez.',
       network: 'El dictado no pudo conectarse. Comprueba tu conexión e inténtalo de nuevo.',
       aborted: 'Dictado detenido. Puedes editar el texto o volver a intentarlo.'
     };
@@ -164,13 +296,23 @@ function validateBackup(data) {
   if (data.tasks.some(item => item.nextStep !== undefined && (typeof item.nextStep !== 'string' || item.nextStep.length > 500))) {
     throw new Error('La copia contiene un próximo paso no válido (máximo 500 caracteres).');
   }
-  return {
-    tasks: data.tasks.map(({text, done, nextStep}) => ({text, done, ...(nextStep === undefined ? {} : {nextStep})})),
+  if (data.tasks.some(({steps}) => steps !== undefined && (!Array.isArray(steps)
+    || !steps.every(step => step && text(step.text) && step.text.length <= taskStepLimit && typeof step.done === 'boolean')))) {
+    throw new Error('La copia contiene un checklist de recado no válido.');
+  }
+  const result = {
+    tasks: data.tasks.map(({text, done, nextStep, steps}) => ({
+      text, done,
+      ...(nextStep === undefined ? {} : {nextStep}),
+      ...(steps === undefined ? {} : {steps: steps.map(({text, done}) => ({text, done}))})
+    })),
     people: data.people.map(({text, done}) => ({text, done})),
     travels: data.travels.map(({text, url}) => ({text, url})),
     ...(data.features === undefined ? {} : {features: window.miDiaFeaturesCore.validate(data.features)}),
     meals: data.meals, shopping: typeof data.shopping === 'string' ? data.shopping : ''
   };
+  if (result.tasks.some(task => task.steps !== undefined)) enableTaskChecklists(result);
+  return result;
 }
 $('import').onclick = () => $('import-file').click();
 $('import-file').onchange = async () => {
@@ -183,7 +325,16 @@ $('import-file').onchange = async () => {
     catch { throw new Error('No se pudo leer un archivo JSON válido.'); }
     const restored = validateBackup(data);
     if (data.features === undefined && state.features) restored.features = window.miDiaFeaturesCore.validate(state.features);
-    if (!window.confirm(`Restaurar ${restored.tasks.length} pendientes, ${restored.people.length} personas, ${restored.travels.length} viajes y el enlace de Keep. Si la copia incluye checklist y maleta, también los reemplazará. Las copias antiguas conservan tu checklist y maleta actuales. Exporta primero una copia si quieres conservarlos. ¿Continuar?`)) {
+    if (data.features?.personal === undefined && state.features?.personal) {
+      restored.features ??= window.miDiaFeaturesCore.defaults();
+      restored.features.personal = window.miDiaPersonalCore.validate(state.features.personal);
+    }
+    if (data.features?.menu === undefined && state.features?.menu) {
+      restored.features ??= window.miDiaFeaturesCore.defaults();
+      restored.features.menu = state.features.menu;
+    }
+    if (state.features?.taskChecklists) enableTaskChecklists(restored);
+    if (!window.confirm(`Restaurar ${restored.tasks.length} recados con sus pasos, ${restored.people.length} personas, ${restored.travels.length} viajes y el enlace de Keep. Los datos de checklist diario, maleta, trámites, ahorro, planes, detalles y menú incluidos en la copia reemplazarán los actuales. Exporta primero una copia si quieres conservarlos. ¿Continuar?`)) {
       $('status').textContent = 'Importación cancelada. Tus datos siguen igual.';
       return;
     }
@@ -217,6 +368,6 @@ window.miDia = {
   lock(locked) {
     editingLocked = locked;
     window.dispatchEvent(new CustomEvent('mi-dia-lock', {detail: locked}));
-    document.querySelectorAll('.grid input, .grid button, #import, #settings input, #settings button, #help-save, .daily input, .daily button, .daily select, #packing-settings input, #packing-settings button, #reminder-dismiss').forEach(node => node.disabled = locked);
+    document.querySelectorAll('.grid input, .grid button, #import, #settings input, #settings button, #help-save, .daily input, .daily button, .daily select, #packing-settings input, #packing-settings button').forEach(node => node.disabled = locked);
   }
 };

@@ -1,4 +1,4 @@
-import {emptyState, nextRevision, hasData} from './sync-core.mjs';
+import {emptyState, nextRevision, hasData} from './sync-core.mjs?v=menu-1';
 const el = id => document.getElementById(id);
 const message = text => el('sync-status').textContent = text;
 const app = window.miDia;
@@ -136,19 +136,27 @@ async function start() {
         remote.state = app.validate(remote.state);
         if (!Number.isSafeInteger(remote.revision) || remote.revision < 0) throw new Error('Invalid revision');
         latest = remote;
-        if (busy) return;
+        // A notification for the revision just saved does not need to rebuild the dashboard.
+        if (busy || (ready && !pending && remote.revision === revision)) return;
         ready = true; app.lock(false);
         if (pending) {
           if (remote.revision !== revision) { conflict(); return; }
           app.apply(pending); flush(); return;
         }
         revision = remote.revision;
-        if (!snapshot.exists() && hasData(guest) && confirm('Tu cuenta aún no tiene listas. ¿Subir los pendientes y datos de este navegador? La copia local se conservará.')) {
+        if (!snapshot.exists() && hasData(guest) && confirm('Tu cuenta aún no tiene listas. ¿Subir los recados y datos de este navegador? La copia local se conservará.')) {
           app.apply(guest); pending = app.read(); persist(); flush();
         } else {
           app.apply(remote.state); persist(); message(`Sincronizado · ${user.email}`);
         }
-      } catch { app.lock(true); message('No se pudieron cargar o conservar las listas. Tus copias locales no se han borrado.'); }
-    }, () => { app.lock(true); message('No se puede acceder al almacenamiento. Comprueba la conexión y la configuración de Firebase y recarga. Las copias locales se conservan.'); });
+      } catch {
+        ready = false;
+        app.lock(true); message('No se pudieron cargar o conservar las listas. Tus copias locales no se han borrado.');
+      }
+    }, () => {
+      ready = false;
+      app.lock(true);
+      message('No se puede acceder al almacenamiento. Comprueba la conexión y la configuración de Firebase y recarga. Las copias locales se conservan.');
+    });
   });
 }

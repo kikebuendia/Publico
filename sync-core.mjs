@@ -7,5 +7,9 @@ export function nextRevision(remote, base) {
   return actual + 1;
 }
 export function hasData(data) {
-  return data.tasks.length + data.people.length + data.travels.length > 0 || !!data.meals || !!data.shopping || !!data.features?.routines?.length || !!data.features?.packingUrl;
+  const personal = data.features?.personal;
+  return !!(personal?.procedures?.length || personal?.savings?.length || personal?.plans?.length)
+    || Object.keys(data.features?.menu ?? {}).length > 0
+    || Object.values(data.features?.records ?? {}).some(day => !!day['menu-descongelar'])
+    || data.tasks.length + data.people.length + data.travels.length > 0 || !!data.meals || !!data.shopping || !!data.features?.routines?.length || !!data.features?.packingUrl;
 }
