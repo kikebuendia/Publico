@@ -10,7 +10,7 @@ Desde este directorio:
 python3 -m http.server 8000 --bind 0.0.0.0
 ```
 
-Sin iniciar sesión, los datos se guardan en localStorage del navegador y origen utilizados. Con Firebase configurado y una sesión de Google, se guardan por cuenta en Firestore y se actualizan en los dispositivos conectados. Consulta el estado de sincronización en la tarjeta superior. El botón «Exportar copia» descarga los datos como JSON. Para restaurar una copia, pulsa «Importar copia», selecciona el JSON exportado y confirma. La importación valida el contenido y reemplaza los datos actuales de este navegador, incluido el enlace de Keep; exporta antes si quieres conservarlos. Si cancelas, el archivo no es válido o falla el guardado, se mantienen los datos actuales. El tamaño máximo es 5 MB.
+Sin iniciar sesión, los datos se guardan en localStorage del navegador y origen utilizados. Con Firebase configurado y una sesión de Google, se guardan por cuenta en Firestore y se actualizan en los dispositivos conectados. Consulta el estado de sincronización en la tarjeta de cuenta al pie del panel. El botón «Exportar copia» descarga los datos como JSON. Para restaurar una copia, pulsa «Importar copia», selecciona el JSON exportado y confirma. La importación valida el contenido y reemplaza los datos actuales de este navegador, incluido el enlace de Keep; exporta antes si quieres conservarlos. Si cancelas, el archivo no es válido o falla el guardado, se mantienen los datos actuales. El tamaño máximo es 5 MB.
 
 La nota compartida de comidas y compra permanece en Keep: configura su único enlace desde el panel. No hay integración con Gmail/Keep ni alertas automáticas de precios. Las fuentes de Google son opcionales; hay fuentes de respaldo locales.
 

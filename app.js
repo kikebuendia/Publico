@@ -190,7 +190,7 @@ $('help-save').onclick = () => {
     assistedTask.nextStep = text;
     save();
   }
-  $('help-status').textContent = 'Próximo paso guardado. Consulta arriba el estado de sincronización.';
+  $('help-status').textContent = 'Próximo paso guardado. Consulta el estado en la tarjeta de cuenta.';
 };
 $('help-copy').onclick = async () => {
   const prompt = $('help-prompt').value;
@@ -343,7 +343,7 @@ $('import-file').onchange = async () => {
     state = restored;
     render();
     window.dispatchEvent(new Event('mi-dia-change'));
-    $('status').textContent = 'Copia restaurada. Consulta arriba el estado de sincronización.';
+    $('status').textContent = 'Copia restaurada. Consulta el estado en la tarjeta de cuenta.';
   } catch (error) {
     $('status').textContent = `${error.message} No se han cambiado tus datos.`;
   } finally {
@@ -368,6 +368,6 @@ window.miDia = {
   lock(locked) {
     editingLocked = locked;
     window.dispatchEvent(new CustomEvent('mi-dia-lock', {detail: locked}));
-    document.querySelectorAll('.grid input, .grid button, #import, #settings input, #settings button, #help-save, .daily input, .daily button, .daily select, #packing-settings input, #packing-settings button').forEach(node => node.disabled = locked);
+    document.querySelectorAll('.tasks input, .tasks button, .grid input, .grid button, #import, #settings input, #settings button, #help-save, .daily input, .daily button, .daily select, #packing-settings input, #packing-settings button').forEach(node => node.disabled = locked);
   }
 };
