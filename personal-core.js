@@ -12,11 +12,12 @@
     return !isNaN(date) && date.toISOString().slice(0, 10) === value;
   };
   const amount = value => Number.isSafeInteger(value) && value >= 0 && value <= 99999999999;
+  const isMonth = value => typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
   const readers = {
     procedures(item) {
       const {date, months, anchor} = item;
-      if ((date !== '' && !validDate(date)) || !Number.isInteger(months) || months < 0 || months > 120
-        || !Number.isInteger(anchor) || anchor < 1 || anchor > 31 || (months && !date)) throw Error('Fecha o repetición no válida.');
+      if ((date !== '' && !validDate(date) && !isMonth(date)) || !Number.isInteger(months) || months < 0 || months > 120
+        || !Number.isInteger(anchor) || anchor < 1 || anchor > 31) throw Error('Fecha o repetición no válida.');
       return {date, months, anchor};
     },
     savings(item) {
@@ -63,10 +64,12 @@
     const limit = new Date(today + 'T00:00:00Z');
     limit.setUTCDate(limit.getUTCDate() + 30);
     const lastDay = limit.toISOString().slice(0, 10);
-    return procedures.filter(item => item.date >= today && item.date <= lastDay)
+    return procedures.filter(({date}) => isMonth(date)
+      ? date >= today.slice(0, 7) && date <= lastDay.slice(0, 7)
+      : date >= today && date <= lastDay)
       .sort((a, b) => a.date.localeCompare(b.date));
   }
-  const api = {ideaGroups, defaults, validate, nextDate, upcomingProcedures};
+  const api = {ideaGroups, defaults, validate, nextDate, upcomingProcedures, isMonth};
   if (typeof module !== 'undefined') module.exports = api;
   else root.miDiaPersonalCore = api;
 })(globalThis);

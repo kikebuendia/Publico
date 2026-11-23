@@ -14,6 +14,10 @@
   const labels = {procedures: 'trámite', savings: 'objetivo', plans: 'plan', details: 'detalle'};
   const money = new Intl.NumberFormat('es-ES', {style: 'currency', currency: 'EUR'});
   const dates = new Intl.DateTimeFormat('es-ES', {dateStyle: 'medium', timeZone: 'UTC'});
+  const monthFormat = new Intl.DateTimeFormat('es-ES', {month: 'long', year: 'numeric', timeZone: 'UTC'});
+  const procedureFile = el('procedure-file');
+  const importStatus = el('procedure-import-status');
+  let accountEpoch = 0;
   let locked = false;
   let editing;
 
@@ -50,7 +54,9 @@
     for (const [name, group] of Object.entries(fields)) group.hidden = group.disabled = name !== kind;
     el('personal-name').value = item?.name ?? '';
     if (kind === 'procedures') {
-      el('personal-date').value = item?.date ?? '';
+      const date = item?.date ?? '';
+      el('personal-date').value = core.isMonth(date) ? '' : date;
+      el('personal-month').value = core.isMonth(date) ? date : '';
       el('personal-months').value = item?.months || '';
     }
     if (kind === 'savings') {
@@ -68,9 +74,11 @@
   function entryFields(kind, previous) {
     if (kind === 'procedures') {
       const date = el('personal-date').value;
+      const month = el('personal-month').value.trim();
+      if (date && month) throw Error('Indica una fecha exacta o un mes previsto.');
       const months = Number(el('personal-months').value);
-      if (months && !date) throw Error('Indica la próxima fecha para repetir este trámite.');
-      return {date, months, anchor: date === previous?.date ? previous.anchor : Number(date.slice(-2)) || 1};
+      const anchor = date && date === previous?.date ? previous.anchor : Number(date.slice(-2)) || 1;
+      return {date: date || month, months, anchor};
     }
     if (kind === 'savings') {
       const cents = id => Math.round(Number(el(id).value) * 100);
@@ -107,6 +115,39 @@
     button.onclick = () => open(button.dataset.addPersonal, undefined, button.dataset.ideaGroup);
   }
 
+  el('import-procedures').onclick = () => procedureFile.click();
+  procedureFile.onchange = async () => {
+    const file = procedureFile.files[0];
+    procedureFile.value = '';
+    if (!file || locked) return;
+    const epoch = accountEpoch;
+    try {
+      if (file.size > 128 * 1024) throw Error('El archivo de trámites supera 128 KB.');
+      const json = JSON.parse(await file.text());
+      const incoming = core.validate({...core.defaults(), procedures: json}).procedures;
+      if (locked || epoch !== accountEpoch) return;
+      let added = 0;
+      change(data => {
+        const names = new Set(data.procedures.map(item => item.name.toLocaleLowerCase('es')));
+        for (const item of incoming) {
+          const name = item.name.toLocaleLowerCase('es');
+          if (names.has(name)) continue;
+          data.procedures.push({...item, id: crypto.randomUUID()});
+          names.add(name);
+          added++;
+        }
+      });
+      importStatus.textContent = `Trámites añadidos: ${added}. Ya existentes: ${incoming.length - added}.`;
+    } catch (error) {
+      if (epoch === accountEpoch) importStatus.textContent = error instanceof SyntaxError ? 'El archivo debe ser JSON válido.' : error.message;
+    }
+  };
+
+  function formatProcedureDate(date) {
+    if (core.isMonth(date)) return monthFormat.format(new Date(date + '-01T00:00:00Z'));
+    return dates.format(new Date(date + 'T00:00:00Z'));
+  }
+
   function action(text, handler, name) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -120,10 +161,11 @@
 
   function describe(kind, item, today) {
     if (kind === 'procedures') {
-      if (!item.date) return 'Sin fecha';
-      const date = dates.format(new Date(item.date + 'T00:00:00Z'));
       const recurrence = item.months === 1 ? ' · Cada mes' : item.months ? ` · Cada ${item.months} meses` : '';
-      const status = item.date < today ? 'Vencido · ' : item.date === today ? 'Hoy · ' : '';
+      if (!item.date) return 'Fecha por confirmar' + recurrence;
+      const date = formatProcedureDate(item.date);
+      const current = core.isMonth(item.date) ? today.slice(0, 7) : today;
+      const status = item.date < current ? 'Vencido · ' : item.date === today ? 'Hoy · ' : '';
       return status + date + recurrence;
     }
     if (kind === 'savings') {
@@ -160,7 +202,7 @@
         info.append(detail);
       }
       row.append(info);
-      if (kind === 'procedures' && item.months) {
+      if (kind === 'procedures' && item.months && item.date && !core.isMonth(item.date)) {
         const next = core.nextDate(item, today);
         row.append(action('Pasar a la próxima fecha', () => {
           change(data => { data.procedures.find(entry => entry.id === item.id).date = next; });
@@ -188,7 +230,7 @@
       const date = document.createElement('time');
       name.textContent = item.name;
       date.dateTime = item.date;
-      date.textContent = item.date === today ? 'Hoy' : dates.format(new Date(item.date + 'T00:00:00Z'));
+      date.textContent = item.date === today ? 'Hoy' : formatProcedureDate(item.date);
       row.append(name, date);
       list.append(row);
     }
@@ -214,16 +256,25 @@
       }
     }
     for (const button of document.querySelectorAll('[data-add-personal]')) button.disabled = locked;
+    el('import-procedures').disabled = locked;
   }
 
   window.addEventListener('mi-dia-render', render);
   window.addEventListener('mi-dia-day-change', () => renderUpcoming(read().personal?.procedures ?? []));
   window.addEventListener('mi-dia-lock', event => {
     locked = event.detail;
-    if (locked && editor.open) editor.close();
+    if (locked) {
+      accountEpoch++;
+      importStatus.textContent = '';
+      if (editor.open) editor.close();
+    }
     render();
   });
-  window.addEventListener('mi-dia-account-change', () => { if (editor.open) editor.close(); });
+  window.addEventListener('mi-dia-account-change', () => {
+    accountEpoch++;
+    importStatus.textContent = '';
+    if (editor.open) editor.close();
+  });
   window.addEventListener('focus', render);
   render();
 })();
