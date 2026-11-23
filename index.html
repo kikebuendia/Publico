@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f6f5ef"><title>Mi día</title><link rel="stylesheet" href="style.css?v=recados-2"></head>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f6f5ef"><title>Mi día</title><link rel="stylesheet" href="style.css?v=upcoming-1"></head>
 <body><main><header><a class="brand" href="./">mi día<span>●</span></a><span id="date"></span></header><section class="intro"><p class="eyebrow">UN POCO DE ORDEN, MÁS TIEMPO PARA TI</p><h1>Lo importante,<br><em>a mano.</em></h1><p>Tus recados y vuestras listas. Un lugar para empezar el día.</p></section><nav class="dashboard-nav" aria-label="Vistas de Mi Día">
   <button type="button" aria-pressed="true" aria-controls="view-day">Mi día</button>
   <button type="button" aria-pressed="false" aria-controls="view-procedures">Trámites y revisiones</button>
@@ -20,6 +20,14 @@
   <ul id="tasks"></ul>
   <p id="empty" class="empty">No hay recados.</p>
 </article>
+<section class="card upcoming" aria-labelledby="upcoming-title">
+  <div class="title">
+    <h2 id="upcoming-title">Trámites en los próximos 30 días</h2>
+    <button id="show-procedures" class="secondary" type="button">Ver trámites</button>
+  </div>
+  <p id="upcoming-empty" class="note">Sin vencimientos próximos.</p>
+  <ul id="upcoming-procedures"></ul>
+</section>
 <section class="card daily" aria-labelledby="daily-title"><h2 id="daily-title">Mi checklist diario</h2><form id="routine-form"><label class="sr" for="routine-text">Nueva rutina diaria</label><input id="routine-text" required maxlength="200" placeholder="Por ejemplo: preparar la comida"><button>Añadir</button></form><div class="daily-controls"><label for="daily-date">Día de esta semana</label><select id="daily-date"></select><button id="daily-away" type="button" class="secondary" aria-pressed="false">Día fuera · no aplica</button></div><p id="daily-summary" role="status"></p><ul id="daily-list"></ul><p id="daily-status" role="status"></p></section>
 <section class="card packing" aria-labelledby="packing-title"><h2 id="packing-title">Preparar la maleta</h2><p id="packing-detection" role="status">Conecta el calendario para buscar posibles viajes esta semana.</p><ul id="packing-trips"></ul><div class="calendar-actions"><a id="packing-link" target="_blank" rel="noopener noreferrer" hidden>Abrir lista de maleta en Keep ↗</a><button id="packing-configure" type="button" class="secondary">Configurar lista de Keep</button><button id="packing-help" type="button">Preparar consulta para ChatGPT</button></div></section>
 <section class="grid">
@@ -54,7 +62,7 @@
 </section>
 </div>
 <section id="view-procedures" class="card personal-view" aria-labelledby="procedures-title" hidden>
-  <div class="title"><h2 id="procedures-title">Trámites y revisiones</h2><button type="button" data-add-personal="procedures">Añadir trámite</button></div>
+  <div class="title"><h2 id="procedures-title" tabindex="-1">Trámites y revisiones</h2><button type="button" data-add-personal="procedures">Añadir trámite</button></div>
   <p class="muted">Próximas fechas de papeleo, coche y citas recurrentes.</p>
   <ul id="personal-procedures"></ul>
 </section>
@@ -108,4 +116,4 @@
     </div>
   </form>
 </dialog>
-<script src="menu-core.js?v=1"></script><script src="personal-core.js?v=recados-1"></script><script src="features-core.js?v=menu-1"></script><script src="app.js?v=recados-2"></script><script src="calendar.js?v=daily-1"></script><script src="cloud-config.js?v=1"></script><script type="module" src="sync.js?v=menu-1"></script><dialog id="packing-settings"><form id="packing-form" class="stack"><h2>Tu lista de maleta</h2><label for="packing-url">Enlace de la nota en Google Keep</label><input id="packing-url" type="url" placeholder="https://keep.google.com/…"><p class="note">Vacía el campo para quitar el enlace.</p><p id="packing-error" role="alert"></p><div class="actions"><button type="button" id="packing-cancel" class="secondary">Cancelar</button><button>Guardar</button></div></form></dialog><dialog id="packing-help-dialog" aria-labelledby="packing-help-title"><h2 id="packing-help-title">Una maleta a tu medida</h2><div class="stack"><label for="packing-context">Confirma los viajes y añade tus necesidades</label><textarea id="packing-context" rows="4" maxlength="5000" placeholder="Destino, fechas, actividades, tipo de equipaje…"></textarea><p class="note">Solo se incluyen posibles viajes de esta semana. Revisa el texto: no se envía automáticamente ni se guarda este borrador.</p><label for="packing-prompt">Petición para ChatGPT · puedes editarla</label><textarea id="packing-prompt" rows="8"></textarea><div class="actions"><button id="packing-copy" type="button">Copiar petición</button><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir ChatGPT ↗</a></div><p id="packing-copy-status" role="status"></p><button id="packing-help-close" type="button" class="secondary">Cerrar</button></div></dialog><script src="features.js?v=menu-1"></script><script src="personal.js?v=recados-1"></script></body></html>
+<script src="menu-core.js?v=1"></script><script src="personal-core.js?v=upcoming-1"></script><script src="features-core.js?v=menu-1"></script><script src="app.js?v=recados-2"></script><script src="calendar.js?v=daily-1"></script><script src="cloud-config.js?v=1"></script><script type="module" src="sync.js?v=menu-1"></script><dialog id="packing-settings"><form id="packing-form" class="stack"><h2>Tu lista de maleta</h2><label for="packing-url">Enlace de la nota en Google Keep</label><input id="packing-url" type="url" placeholder="https://keep.google.com/…"><p class="note">Vacía el campo para quitar el enlace.</p><p id="packing-error" role="alert"></p><div class="actions"><button type="button" id="packing-cancel" class="secondary">Cancelar</button><button>Guardar</button></div></form></dialog><dialog id="packing-help-dialog" aria-labelledby="packing-help-title"><h2 id="packing-help-title">Una maleta a tu medida</h2><div class="stack"><label for="packing-context">Confirma los viajes y añade tus necesidades</label><textarea id="packing-context" rows="4" maxlength="5000" placeholder="Destino, fechas, actividades, tipo de equipaje…"></textarea><p class="note">Solo se incluyen posibles viajes de esta semana. Revisa el texto: no se envía automáticamente ni se guarda este borrador.</p><label for="packing-prompt">Petición para ChatGPT · puedes editarla</label><textarea id="packing-prompt" rows="8"></textarea><div class="actions"><button id="packing-copy" type="button">Copiar petición</button><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir ChatGPT ↗</a></div><p id="packing-copy-status" role="status"></p><button id="packing-help-close" type="button" class="secondary">Cerrar</button></div></dialog><script src="features.js?v=upcoming-1"></script><script src="personal.js?v=upcoming-1"></script></body></html>

@@ -24,6 +24,10 @@
       el(button.getAttribute('aria-controls')).hidden = button !== view;
     }
   };
+  el('show-procedures').onclick = () => {
+    document.querySelector('.dashboard-nav [aria-controls="view-procedures"]').click();
+    el('procedures-title').focus();
+  };
 
   function read() {
     return features.validate(app.read().features);
@@ -172,8 +176,27 @@
     }
   }
 
+  function renderUpcoming(procedures) {
+    const today = features.dayKey();
+    const upcoming = core.upcomingProcedures(procedures, today);
+    const list = el('upcoming-procedures');
+    list.replaceChildren();
+    el('upcoming-empty').hidden = upcoming.length > 0;
+    for (const item of upcoming) {
+      const row = document.createElement('li');
+      const name = document.createElement('span');
+      const date = document.createElement('time');
+      name.textContent = item.name;
+      date.dateTime = item.date;
+      date.textContent = item.date === today ? 'Hoy' : dates.format(new Date(item.date + 'T00:00:00Z'));
+      row.append(name, date);
+      list.append(row);
+    }
+  }
+
   function render() {
     const data = read().personal ?? core.defaults();
+    renderUpcoming(data.procedures);
     const procedures = data.procedures.sort((a, b) => (a.date || '∞').localeCompare(b.date || '∞'));
     renderList(el('personal-procedures'), 'procedures', procedures, 'Añade una revisión, la ITV o un plazo que quieras recordar.');
     renderList(el('personal-savings'), 'savings', data.savings, 'Aún no has añadido objetivos.');
@@ -194,6 +217,7 @@
   }
 
   window.addEventListener('mi-dia-render', render);
+  window.addEventListener('mi-dia-day-change', () => renderUpcoming(read().personal?.procedures ?? []));
   window.addEventListener('mi-dia-lock', event => {
     locked = event.detail;
     if (locked && editor.open) editor.close();

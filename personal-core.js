@@ -59,7 +59,14 @@
     const candidate = at(offset);
     return candidate > today ? candidate : at(offset + months);
   }
-  const api = {ideaGroups, defaults, validate, nextDate};
+  function upcomingProcedures(procedures, today) {
+    const limit = new Date(today + 'T00:00:00Z');
+    limit.setUTCDate(limit.getUTCDate() + 30);
+    const lastDay = limit.toISOString().slice(0, 10);
+    return procedures.filter(item => item.date >= today && item.date <= lastDay)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+  const api = {ideaGroups, defaults, validate, nextDate, upcomingProcedures};
   if (typeof module !== 'undefined') module.exports = api;
   else root.miDiaPersonalCore = api;
 })(globalThis);

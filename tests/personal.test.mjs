@@ -29,3 +29,11 @@ test('preserva listas personales al validar y detecta contenido para migrar', ()
   }
   assert.throws(() => personal.validate({...personal.defaults(), plans: [{id: 'test', name: 'Entrada', category: 'constructor'}]}));
 });
+
+test('resumen de trámites desde hoy hasta dentro de 30 días, ordenado por fecha', () => {
+  const entries = ['2027-01-15', '', '2026-12-15', '2026-12-14', '2027-01-14', '2027-01-01']
+    .map(date => ({date}));
+  const upcoming = personal.upcomingProcedures(entries, '2026-12-15');
+  assert.deepEqual(upcoming.map(item => item.date), ['2026-12-15', '2027-01-01', '2027-01-14']);
+  assert.equal(entries[0].date, '2027-01-15');
+});

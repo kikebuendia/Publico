@@ -90,6 +90,6 @@
   window.addEventListener('mi-dia-calendar-events',e=>{calendarEvents=e.detail;render();});
   window.addEventListener('mi-dia-account-change',()=>{calendarEvents=null;menuDialog.close();el('packing-help-dialog').close();el('packing-context').value='';el('packing-prompt').value='';render();});
   window.addEventListener('focus',render);
-  setInterval(()=>{if(core.dayKey()!==lastToday){lastToday=core.dayKey();selected=lastToday;render();}},60000);
+  setInterval(()=>{if(core.dayKey()!==lastToday){lastToday=core.dayKey();selected=lastToday;render();window.dispatchEvent(new Event('mi-dia-day-change'));}},60000);
   render();
 })();

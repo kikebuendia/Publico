@@ -50,3 +50,9 @@
 .home .calendar-actions a{color:#405b43;font-size:13px}
 #menu-dialog{max-height:90dvh;overflow:auto}
 #menu-error{margin:0;color:#9c3f2b}
+
+.upcoming{margin-bottom:22px}
+.upcoming .title{flex-wrap:wrap;gap:12px}
+.upcoming ul:empty{display:none}
+.upcoming time{white-space:nowrap;font-size:13px;color:#5f7455}
+.upcoming li:last-child{border-bottom:0}
