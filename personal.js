@@ -68,6 +68,7 @@
       el('personal-date').value = core.isMonth(date) ? '' : date;
       el('personal-month').value = core.isMonth(date) ? date : '';
       el('personal-months').value = item?.months || '';
+      el('personal-notice').value = item?.noticeDays ?? '';
     }
     if (kind === 'savings') {
       el('personal-target').value = item?.target ? item.target / 100 : '';
@@ -88,8 +89,9 @@
       const month = el('personal-month').value.trim();
       if (date && month) throw Error('Indica una fecha exacta o un mes previsto.');
       const months = Number(el('personal-months').value);
+      const notice = el('personal-notice').value;
       const anchor = date && date === previous?.date ? previous.anchor : Number(date.slice(-2)) || 1;
-      return {date: date || month, months, anchor};
+      return {date: date || month, months, anchor, ...(notice === '' ? {} : {noticeDays: Number(notice)})};
     }
     if (kind === 'savings') {
       const cents = id => Math.round(Number(el(id).value) * 100);
@@ -167,11 +169,12 @@
     }
     if (kind === 'procedures') {
       const recurrence = item.months === 1 ? ' · Cada mes' : item.months ? ` · Cada ${item.months} meses` : '';
-      if (!item.date) return 'Fecha por confirmar' + recurrence;
+      const notice = item.noticeDays === undefined ? '' : item.noticeDays === 0 ? ' · Aviso el mismo día' : ` · Aviso: ${item.noticeDays} días antes`;
+      if (!item.date) return 'Fecha por confirmar' + recurrence + notice;
       const date = formatProcedureDate(item.date);
       const current = core.isMonth(item.date) ? today.slice(0, 7) : today;
       const status = item.date < current ? 'Vencido · ' : item.date === today ? 'Hoy · ' : '';
-      return status + date + recurrence;
+      return status + date + recurrence + notice;
     }
     if (kind === 'savings') {
       const saved = money.format(item.saved / 100);
@@ -236,12 +239,21 @@
     el('upcoming-empty').hidden = upcoming.length > 0;
     for (const item of upcoming) {
       const row = document.createElement('li');
+      const info = document.createElement('div');
+      info.className = 'list-content';
       const name = document.createElement('span');
       const date = document.createElement('time');
       name.textContent = item.name;
       date.dateTime = item.date;
       date.textContent = item.date === today ? 'Hoy' : formatProcedureDate(item.date);
-      row.append(name, date);
+      info.append(name);
+      if (item.noticeDays !== undefined && item.date !== today) {
+        const notice = document.createElement('small');
+        notice.className = 'next-step';
+        notice.textContent = `Aviso desde el ${formatProcedureDate(core.noticeDate(item))}`;
+        info.append(notice);
+      }
+      row.append(info, date);
       list.append(row);
     }
   }

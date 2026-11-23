@@ -43,3 +43,18 @@ test('la recurrencia mensual conserva la precisión cuando falta el día', () =>
   assert.equal(personal.nextDate(entry, '2026-11-23'), '2027-11');
   assert.equal(personal.nextDate(entry, '2027-11-23'), '2028-11');
 });
+
+test('el aviso configurable adelanta o acorta el plazo y admite fechas por mes', () => {
+  const procedures = [
+    {date: '2027-03', noticeDays: 60},
+    {date: '2027-02-05', noticeDays: 0},
+    {date: '2027-02-08', noticeDays: 10},
+    {date: '2027-01-10', noticeDays: 30}
+  ];
+  assert.equal(personal.noticeDate(procedures[0]), '2026-12-31');
+  assert.deepEqual(personal.upcomingProcedures(procedures, '2027-02-01'), [procedures[2], procedures[0]]);
+  assert.deepEqual(personal.upcomingProcedures(procedures, '2027-02-05'), [procedures[1], procedures[2], procedures[0]]);
+  const value = {...personal.defaults(), procedures: [{id: 'example', name: 'Trámite', months: 12, anchor: 1, ...procedures[0]}]};
+  assert.deepEqual(personal.validate(value), value);
+  assert.throws(() => personal.validate({...value, procedures: [{...value.procedures[0], noticeDays: -1}]}));
+});

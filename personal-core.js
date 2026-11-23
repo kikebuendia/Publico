@@ -15,10 +15,13 @@
   const isMonth = value => typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
   const readers = {
     procedures(item) {
-      const {date, months, anchor} = item;
+      const {date, months, anchor, noticeDays} = item;
       if ((date !== '' && !validDate(date) && !isMonth(date)) || !Number.isInteger(months) || months < 0 || months > 120
         || !Number.isInteger(anchor) || anchor < 1 || anchor > 31) throw Error('Fecha o repetición no válida.');
-      return {date, months, anchor};
+      if (noticeDays !== undefined && (!Number.isInteger(noticeDays) || noticeDays < 0 || noticeDays > 365)) {
+        throw Error('Indica entre 0 y 365 días de antelación.');
+      }
+      return {date, months, anchor, ...(noticeDays === undefined ? {} : {noticeDays})};
     },
     savings(item) {
       const {target, saved} = item;
@@ -70,16 +73,21 @@
     const candidate = at(offset);
     return candidate > (monthOnly ? today.slice(0, 7) : today) ? candidate : at(offset + months);
   }
+  function noticeDate({date, noticeDays}) {
+    if (!date) return '';
+    const firstDay = isMonth(date) ? date + '-01' : date;
+    const start = new Date(firstDay + 'T00:00:00Z');
+    start.setUTCDate(start.getUTCDate() - (noticeDays ?? 30));
+    return start.getUTCFullYear() < 1 ? '0001-01-01' : start.toISOString().slice(0, 10);
+  }
   function upcomingProcedures(procedures, today) {
-    const limit = new Date(today + 'T00:00:00Z');
-    limit.setUTCDate(limit.getUTCDate() + 30);
-    const lastDay = limit.toISOString().slice(0, 10);
-    return procedures.filter(({date}) => isMonth(date)
-      ? date >= today.slice(0, 7) && date <= lastDay.slice(0, 7)
-      : date >= today && date <= lastDay)
+    return procedures.filter(item => {
+      const current = isMonth(item.date) ? today.slice(0, 7) : today;
+      return item.date >= current && noticeDate(item) <= today;
+    })
       .sort((a, b) => a.date.localeCompare(b.date));
   }
-  const api = {ideaGroups, defaults, validate, nextDate, upcomingProcedures, isMonth};
+  const api = {ideaGroups, defaults, validate, nextDate, upcomingProcedures, isMonth, noticeDate};
   if (typeof module !== 'undefined') module.exports = api;
   else root.miDiaPersonalCore = api;
 })(globalThis);

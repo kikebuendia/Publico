@@ -22,7 +22,7 @@
 </article>
 <section class="card upcoming" aria-labelledby="upcoming-title">
   <div class="title">
-    <h2 id="upcoming-title">Trámites en los próximos 30 días</h2>
+    <h2 id="upcoming-title">Próximos trámites</h2>
     <button id="show-procedures" class="secondary" type="button">Ver trámites</button>
   </div>
   <p id="upcoming-empty" class="note">Sin vencimientos próximos.</p>
@@ -102,6 +102,9 @@
       <input id="personal-month" type="month" placeholder="AAAA-MM" pattern="[0-9]{4}-(0[1-9]|1[0-2])">
       <label for="personal-months">Repetir cada cuántos meses (opcional)</label>
       <input id="personal-months" type="number" min="1" max="120" step="1" placeholder="Por ejemplo, 2 o 12">
+      <label for="personal-notice">Días de antelación del aviso (opcional)</label>
+      <input id="personal-notice" type="number" min="0" max="365" step="1" placeholder="Por defecto, 30 días">
+      <p class="note">Si indicas un mes, la antelación se cuenta desde el primer día de ese mes.</p>
     </fieldset>
     <fieldset id="personal-saving-fields" class="stack" disabled hidden>
       <label for="personal-target">Meta en euros (opcional)</label>
@@ -134,4 +137,4 @@
     </div>
   </form>
 </dialog>
-<script src="menu-core.js?v=1"></script><script src="personal-core.js?v=purchases-1"></script><script src="features-core.js?v=menu-1"></script><script src="app.js?v=purchases-1"></script><script src="calendar.js?v=daily-1"></script><script src="cloud-config.js?v=1"></script><script type="module" src="sync.js?v=purchases-1"></script><dialog id="packing-settings"><form id="packing-form" class="stack"><h2>Tu lista de maleta</h2><label for="packing-url">Enlace de la nota en Google Keep</label><input id="packing-url" type="url" placeholder="https://keep.google.com/…"><p class="note">Vacía el campo para quitar el enlace.</p><p id="packing-error" role="alert"></p><div class="actions"><button type="button" id="packing-cancel" class="secondary">Cancelar</button><button>Guardar</button></div></form></dialog><dialog id="packing-help-dialog" aria-labelledby="packing-help-title"><h2 id="packing-help-title">Una maleta a tu medida</h2><div class="stack"><label for="packing-context">Confirma los viajes y añade tus necesidades</label><textarea id="packing-context" rows="4" maxlength="5000" placeholder="Destino, fechas, actividades, tipo de equipaje…"></textarea><p class="note">Solo se incluyen posibles viajes de esta semana. Revisa el texto: no se envía automáticamente ni se guarda este borrador.</p><label for="packing-prompt">Petición para ChatGPT · puedes editarla</label><textarea id="packing-prompt" rows="8"></textarea><div class="actions"><button id="packing-copy" type="button">Copiar petición</button><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir ChatGPT ↗</a></div><p id="packing-copy-status" role="status"></p><button id="packing-help-close" type="button" class="secondary">Cerrar</button></div></dialog><script src="features.js?v=upcoming-1"></script><script src="personal.js?v=purchases-1"></script></body></html>
+<script src="menu-core.js?v=1"></script><script src="personal-core.js?v=procedure-notice-1"></script><script src="features-core.js?v=menu-1"></script><script src="app.js?v=purchases-1"></script><script src="calendar.js?v=daily-1"></script><script src="cloud-config.js?v=1"></script><script type="module" src="sync.js?v=purchases-1"></script><dialog id="packing-settings"><form id="packing-form" class="stack"><h2>Tu lista de maleta</h2><label for="packing-url">Enlace de la nota en Google Keep</label><input id="packing-url" type="url" placeholder="https://keep.google.com/…"><p class="note">Vacía el campo para quitar el enlace.</p><p id="packing-error" role="alert"></p><div class="actions"><button type="button" id="packing-cancel" class="secondary">Cancelar</button><button>Guardar</button></div></form></dialog><dialog id="packing-help-dialog" aria-labelledby="packing-help-title"><h2 id="packing-help-title">Una maleta a tu medida</h2><div class="stack"><label for="packing-context">Confirma los viajes y añade tus necesidades</label><textarea id="packing-context" rows="4" maxlength="5000" placeholder="Destino, fechas, actividades, tipo de equipaje…"></textarea><p class="note">Solo se incluyen posibles viajes de esta semana. Revisa el texto: no se envía automáticamente ni se guarda este borrador.</p><label for="packing-prompt">Petición para ChatGPT · puedes editarla</label><textarea id="packing-prompt" rows="8"></textarea><div class="actions"><button id="packing-copy" type="button">Copiar petición</button><a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir ChatGPT ↗</a></div><p id="packing-copy-status" role="status"></p><button id="packing-help-close" type="button" class="secondary">Cerrar</button></div></dialog><script src="features.js?v=upcoming-1"></script><script src="personal.js?v=procedure-notice-1"></script></body></html>
