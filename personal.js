@@ -7,11 +7,12 @@
   const editor = el('personal-editor');
   const form = el('personal-form');
   const fields = {
+    purchases: el('personal-purchase-fields'),
     procedures: el('personal-procedure-fields'),
     savings: el('personal-saving-fields'),
     plans: el('personal-plan-fields')
   };
-  const labels = {procedures: 'trámite', savings: 'objetivo', plans: 'plan', details: 'detalle'};
+  const labels = {purchases: 'ticket o bono', procedures: 'trámite', savings: 'objetivo', plans: 'plan', details: 'detalle'};
   const money = new Intl.NumberFormat('es-ES', {style: 'currency', currency: 'EUR'});
   const dates = new Intl.DateTimeFormat('es-ES', {dateStyle: 'medium', timeZone: 'UTC'});
   const monthFormat = new Intl.DateTimeFormat('es-ES', {month: 'long', year: 'numeric', timeZone: 'UTC'});
@@ -20,6 +21,11 @@
   let accountEpoch = 0;
   let locked = false;
   let editing;
+  const cancelPurchaseVoice = app.bindDictation({
+    button: el('purchase-voice'), input: el('personal-name'),
+    status: el('purchase-voice-status'), submit: form.querySelector('button[type=submit]')
+  });
+  editor.addEventListener('close', cancelPurchaseVoice);
 
   const views = document.querySelectorAll('.dashboard-nav button');
   for (const view of views) view.onclick = () => {
@@ -53,6 +59,10 @@
     el('personal-editor-title').textContent = `${item ? 'Editar' : 'Añadir'} ${labels[group]}`;
     for (const [name, group] of Object.entries(fields)) group.hidden = group.disabled = name !== kind;
     el('personal-name').value = item?.name ?? '';
+    if (kind === 'purchases') {
+      el('purchase-date').value = item?.date ?? '';
+      el('purchase-voice-status').textContent = '';
+    }
     if (kind === 'procedures') {
       const date = item?.date ?? '';
       el('personal-date').value = core.isMonth(date) ? '' : date;
@@ -72,6 +82,7 @@
   }
 
   function entryFields(kind, previous) {
+    if (kind === 'purchases') return {date: el('purchase-date').value, used: previous?.used ?? false};
     if (kind === 'procedures') {
       const date = el('personal-date').value;
       const month = el('personal-month').value.trim();
@@ -124,20 +135,9 @@
     try {
       if (file.size > 128 * 1024) throw Error('El archivo de trámites supera 128 KB.');
       const json = JSON.parse(await file.text());
-      const incoming = core.validate({...core.defaults(), procedures: json}).procedures;
       if (locked || epoch !== accountEpoch) return;
-      let added = 0;
-      change(data => {
-        const names = new Set(data.procedures.map(item => item.name.toLocaleLowerCase('es')));
-        for (const item of incoming) {
-          const name = item.name.toLocaleLowerCase('es');
-          if (names.has(name)) continue;
-          data.procedures.push({...item, id: crypto.randomUUID()});
-          names.add(name);
-          added++;
-        }
-      });
-      importStatus.textContent = `Trámites añadidos: ${added}. Ya existentes: ${incoming.length - added}.`;
+      const added = app.importEntries(json);
+      importStatus.textContent = `Añadidos: ${added.procedures} trámites y ${added.tasks} recados.`;
     } catch (error) {
       if (epoch === accountEpoch) importStatus.textContent = error instanceof SyntaxError ? 'El archivo debe ser JSON válido.' : error.message;
     }
@@ -160,6 +160,11 @@
   }
 
   function describe(kind, item, today) {
+    if (kind === 'purchases') {
+      if (item.used) return 'Archivado';
+      if (item.date) return (item.date < today ? 'Caducó el ' : 'Válido hasta el ') + formatProcedureDate(item.date);
+      return '';
+    }
     if (kind === 'procedures') {
       const recurrence = item.months === 1 ? ' · Cada mes' : item.months ? ` · Cada ${item.months} meses` : '';
       if (!item.date) return 'Fecha por confirmar' + recurrence;
@@ -202,10 +207,15 @@
         info.append(detail);
       }
       row.append(info);
-      if (kind === 'procedures' && item.months && item.date && !core.isMonth(item.date)) {
+      if (kind === 'procedures' && item.months && item.date) {
         const next = core.nextDate(item, today);
         row.append(action('Pasar a la próxima fecha', () => {
           change(data => { data.procedures.find(entry => entry.id === item.id).date = next; });
+        }, item.name));
+      }
+      if (kind === 'purchases') {
+        row.append(action(item.used ? 'Reactivar' : 'Archivar', () => {
+          change(data => { data.purchases.find(entry => entry.id === item.id).used = !item.used; });
         }, item.name));
       }
       row.append(action('Editar', () => open(kind, item, group), item.name));
@@ -241,6 +251,9 @@
     renderUpcoming(data.procedures);
     const procedures = data.procedures.sort((a, b) => (a.date || '∞').localeCompare(b.date || '∞'));
     renderList(el('personal-procedures'), 'procedures', procedures, 'Añade una revisión, la ITV o un plazo que quieras recordar.');
+    const purchases = data.purchases.sort((a, b) => Number(a.used) - Number(b.used)
+      || (a.date || '∞').localeCompare(b.date || '∞'));
+    renderList(el('personal-purchases'), 'purchases', purchases, 'Sin tickets ni bonos guardados.');
     renderList(el('personal-savings'), 'savings', data.savings, 'Aún no has añadido objetivos.');
     for (const [group, categories] of Object.entries(core.ideaGroups)) {
       const container = el(`personal-${group}`);

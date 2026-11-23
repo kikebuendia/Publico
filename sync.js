@@ -1,4 +1,4 @@
-import {emptyState, nextRevision, hasData} from './sync-core.mjs?v=menu-1';
+import {emptyState, nextRevision, hasData} from './sync-core.mjs?v=purchases-1';
 const el = id => document.getElementById(id);
 const message = text => el('sync-status').textContent = text;
 const app = window.miDia;

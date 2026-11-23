@@ -5,7 +5,7 @@
     details: {detalles: 'Detalles a mi mujer', 'detalles-padres': 'Detalles a mis padres', 'detalles-hermano': 'Detalles a mi hermano'}
   };
   const categories = {...ideaGroups.plans, ...ideaGroups.details};
-  const defaults = () => ({procedures: [], savings: [], plans: []});
+  const defaults = () => ({procedures: [], savings: [], plans: [], purchases: []});
   const validDate = value => {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
     const date = new Date(value + 'T00:00:00Z');
@@ -25,6 +25,11 @@
       if ((target !== null && (!amount(target) || target === 0)) || !amount(saved)) throw Error('Importe no válido.');
       return {target, saved};
     },
+    purchases(item) {
+      const {date, used} = item;
+      if ((date !== '' && !validDate(date)) || typeof used !== 'boolean') throw Error('Ticket o bono no válido.');
+      return {date, used};
+    },
     plans(item) {
       if (!Object.hasOwn(categories, item.category)) throw Error('Categoría de idea no válida.');
       return {category: item.category};
@@ -34,6 +39,7 @@
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw Error('Listas personales no válidas.');
     const result = defaults();
     for (const [kind, read] of Object.entries(readers)) {
+      if (kind === 'purchases' && data[kind] === undefined) continue;
       if (!Array.isArray(data[kind])) throw Error('Listas personales no válidas.');
       const ids = new Set();
       result[kind] = data[kind].map(item => {
@@ -46,19 +52,23 @@
     return result;
   }
   function nextDate({date, months, anchor}, today) {
+    const monthOnly = isMonth(date);
     const [year, month] = date.split('-').map(Number);
     const [currentYear, currentMonth] = today.split('-').map(Number);
     const elapsed = (currentYear - year) * 12 + currentMonth - month;
     const offset = Math.max(1, Math.floor(elapsed / months)) * months;
     function at(delta) {
-      const next = new Date(date + 'T00:00:00Z');
-      next.setUTCDate(1);
+      const next = new Date(date.slice(0, 7) + '-01T00:00:00Z');
+      if (monthOnly) {
+        next.setUTCMonth(month - 1 + delta);
+        return next.toISOString().slice(0, 7);
+      }
       next.setUTCMonth(month - 1 + delta + 1, 0);
       next.setUTCDate(Math.min(anchor, next.getUTCDate()));
       return next.toISOString().slice(0, 10);
     }
     const candidate = at(offset);
-    return candidate > today ? candidate : at(offset + months);
+    return candidate > (monthOnly ? today.slice(0, 7) : today) ? candidate : at(offset + months);
   }
   function upcomingProcedures(procedures, today) {
     const limit = new Date(today + 'T00:00:00Z');

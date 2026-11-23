@@ -37,3 +37,9 @@ test('resumen de trámites desde hoy hasta dentro de 30 días, ordenado por fech
   assert.deepEqual(upcoming.map(item => item.date), ['2026-12-15', '2027-01-01', '2027-01-14']);
   assert.equal(entries[0].date, '2027-01-15');
 });
+
+test('la recurrencia mensual conserva la precisión cuando falta el día', () => {
+  const entry = {date: '2026-11', months: 12, anchor: 1};
+  assert.equal(personal.nextDate(entry, '2026-11-23'), '2027-11');
+  assert.equal(personal.nextDate(entry, '2027-11-23'), '2028-11');
+});

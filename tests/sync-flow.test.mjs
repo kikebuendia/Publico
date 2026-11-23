@@ -33,7 +33,7 @@ test('migración, edición, conflicto y aislamiento al salir con Firebase simula
     })
   };
   let source = await readFile(new URL('../sync.js', import.meta.url), 'utf8');
-  source = source.replace("import {emptyState, nextRevision, hasData} from './sync-core.mjs?v=menu-1';", '');
+  source = source.replace("import {emptyState, nextRevision, hasData} from './sync-core.mjs?v=purchases-1';", '');
   const begin = source.indexOf('  const [{initializeApp}');
   const end = source.indexOf('  const auth =', begin);
   source = source.slice(0, begin) + '  const {initializeApp, authSdk, dbSdk} = mocks;\n' + source.slice(end);

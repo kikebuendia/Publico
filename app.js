@@ -208,69 +208,87 @@ for (const [form,input,kind] of [['task-form','task','tasks'],['person-form','pe
 // El dictado solo rellena el borrador: el usuario decide cuándo añadirlo.
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let dictation = null;
-function resetVoice() {
-  $('voice-task').textContent = '🎙 Dictar recado';
-  $('voice-task').setAttribute('aria-pressed', 'false');
-  $('task-form').querySelector('button').disabled = false;
-}
-$('voice-task').onclick = () => {
-  if (dictation) { dictation.stop(); return; }
-  if (!Recognition || !window.isSecureContext) {
-    $('voice-status').textContent = 'Este navegador no permite dictado aquí. Puedes usar el micrófono del teclado del móvil o escribir.';
-    return;
-  }
-  const recognition = new Recognition();
-  recognition.lang = 'es-ES';
-  recognition.continuous = false;
-  recognition.interimResults = false;
-  const draft = $('task').value.trim();
-  let received = false;
-  let failed = false;
-  dictation = recognition;
-  recognition.onresult = event => {
-    const fragments = [];
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      if (event.results[i].isFinal) fragments.push(event.results[i][0].transcript.trim());
+function bindDictation({button, input, status, submit}) {
+  const buttonText = button.textContent;
+  const resetVoice = () => {
+    button.textContent = buttonText;
+    button.setAttribute('aria-pressed', 'false');
+    submit.disabled = editingLocked;
+  };
+  button.onclick = () => {
+    if (editingLocked) return;
+    if (dictation?.button === button) {
+      dictation.recognition.stop();
+      return;
     }
-    const spoken = fragments.join(' ').trim();
-    if (!spoken) return;
-    received = true;
-    const full = [draft, spoken].filter(Boolean).join(' ');
-    $('task').value = full.slice(0, $('task').maxLength);
-    $('voice-status').textContent = full.length > $('task').maxLength
-      ? 'El texto se ha recortado a 200 caracteres. Revísalo y pulsa + para añadirlo.'
-      : 'Revisa el texto y pulsa + para añadir el recado.';
-  };
-  recognition.onerror = event => {
-    failed = true;
-    const messages = {
-      'not-allowed': 'No hay permiso para usar el micrófono. Permítelo en los ajustes del sitio de Chrome o usa el teclado.',
-      'service-not-allowed': 'El navegador no permite el servicio de dictado. Prueba con el micrófono del teclado.',
-      'audio-capture': 'No se pudo acceder al micrófono. Comprueba que está disponible.',
-      'no-speech': 'No se ha detectado voz. Pulsa Dictar recado para intentarlo otra vez.',
-      network: 'El dictado no pudo conectarse. Comprueba tu conexión e inténtalo de nuevo.',
-      aborted: 'Dictado detenido. Puedes editar el texto o volver a intentarlo.'
+    dictation?.cancel();
+    if (!Recognition || !window.isSecureContext) {
+      status.textContent = 'Este navegador no permite dictado aquí. Puedes usar el micrófono del teclado del móvil o escribir.';
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = 'es-ES';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    const draft = input.value.trim();
+    let received = false;
+    let failed = false;
+    dictation = {recognition, button, cancel: () => {
+      dictation = null;
+      resetVoice();
+      recognition.abort();
+    }};
+    recognition.onresult = event => {
+      if (dictation?.recognition !== recognition || editingLocked) return;
+      const fragments = [];
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) fragments.push(event.results[i][0].transcript.trim());
+      }
+      const spoken = fragments.join(' ').trim();
+      if (!spoken) return;
+      received = true;
+      const full = [draft, spoken].filter(Boolean).join(' ');
+      input.value = full.slice(0, input.maxLength);
+      status.textContent = full.length > input.maxLength
+        ? `El texto se ha recortado a ${input.maxLength} caracteres. Revísalo antes de guardar.`
+        : 'Revisa el texto antes de guardar.';
     };
-    $('voice-status').textContent = messages[event.error] || 'No se pudo completar el dictado. Puedes volver a intentarlo o escribir.';
+    recognition.onerror = event => {
+      if (dictation?.recognition !== recognition) return;
+      failed = true;
+      const messages = {
+        'not-allowed': 'No hay permiso para usar el micrófono. Permítelo en los ajustes del sitio de Chrome o usa el teclado.',
+        'service-not-allowed': 'El navegador no permite el servicio de dictado. Prueba con el micrófono del teclado.',
+        'audio-capture': 'No se pudo acceder al micrófono. Comprueba que está disponible.',
+        'no-speech': 'No se ha detectado voz. Pulsa Dictar para intentarlo otra vez.',
+        network: 'El dictado no pudo conectarse. Comprueba tu conexión e inténtalo de nuevo.',
+        aborted: 'Dictado detenido. Puedes editar el texto o volver a intentarlo.'
+      };
+      status.textContent = messages[event.error] || 'No se pudo completar el dictado. Puedes volver a intentarlo o escribir.';
+    };
+    recognition.onend = () => {
+      if (dictation?.recognition !== recognition) return;
+      dictation = null;
+      resetVoice();
+      if (!received && !failed) status.textContent = 'No se ha detectado texto. Puedes volver a dictar o escribir.';
+    };
+    try {
+      recognition.start();
+      button.textContent = '■ Terminar dictado';
+      button.setAttribute('aria-pressed', 'true');
+      submit.disabled = true;
+      status.textContent = 'Escuchando… Podrás revisar el texto antes de guardarlo.';
+    } catch {
+      dictation = null;
+      resetVoice();
+      status.textContent = 'No se pudo iniciar el dictado. Puedes usar el micrófono del teclado o escribir.';
+    }
   };
-  recognition.onend = () => {
-    dictation = null;
-    resetVoice();
-    if (!received && !failed) $('voice-status').textContent = 'No se ha detectado texto. Puedes volver a dictar o escribir.';
-  };
-  try {
-    recognition.start();
-    $('voice-task').textContent = '■ Terminar dictado';
-    $('voice-task').setAttribute('aria-pressed', 'true');
-    $('task-form').querySelector('button').disabled = true;
-    $('voice-status').textContent = 'Escuchando… Di tu pendiente. Después podrás revisarlo antes de guardarlo.';
-  } catch {
-    dictation = null;
-    resetVoice();
-    $('voice-status').textContent = 'No se pudo iniciar el dictado. Puedes usar el micrófono del teclado o escribir.';
-  }
-};
-window.addEventListener('pagehide', () => { if (dictation) dictation.abort(); });
+  return () => { if (dictation?.button === button) dictation.cancel(); };
+}
+bindDictation({button: $('voice-task'), input: $('task'), status: $('voice-status'), submit: $('task-form').querySelector('button')});
+window.addEventListener('pagehide', () => dictation?.cancel());
+window.addEventListener('mi-dia-account-change', () => dictation?.cancel());
 
 $('configure').onclick = () => { $('meals').value = state.meals; $('settings-error').textContent=''; $('settings').showModal(); };
 $('cancel').onclick = () => $('settings').close();
@@ -333,8 +351,11 @@ $('import-file').onchange = async () => {
       restored.features ??= window.miDiaFeaturesCore.defaults();
       restored.features.menu = state.features.menu;
     }
+    if (data.features?.personal && data.features.personal.purchases === undefined && state.features?.personal?.purchases) {
+      restored.features.personal.purchases = state.features.personal.purchases;
+    }
     if (state.features?.taskChecklists) enableTaskChecklists(restored);
-    if (!window.confirm(`Restaurar ${restored.tasks.length} recados con sus pasos, ${restored.people.length} personas, ${restored.travels.length} viajes y el enlace de Keep. Los datos de checklist diario, maleta, trámites, ahorro, planes, detalles y menú incluidos en la copia reemplazarán los actuales. Exporta primero una copia si quieres conservarlos. ¿Continuar?`)) {
+    if (!window.confirm(`Restaurar ${restored.tasks.length} recados con sus pasos, ${restored.people.length} personas, ${restored.travels.length} viajes y el enlace de Keep. Los datos de checklist diario, maleta, trámites, ahorro, planes, detalles, tickets, bonos y menú incluidos en la copia reemplazarán los actuales. Exporta primero una copia si quieres conservarlos. ¿Continuar?`)) {
       $('status').textContent = 'Importación cancelada. Tus datos siguen igual.';
       return;
     }
@@ -358,6 +379,45 @@ window.miDia = {
     if (editingLocked) throw new Error('Espera a que se carguen tus listas.');
     state.features = window.miDiaFeaturesCore.validate(value); save();
   },
+  bindDictation,
+  importEntries(file) {
+    if (editingLocked) throw Error('Espera a que se carguen tus listas.');
+    const entries = Array.isArray(file) ? {procedures: file} : file;
+    if (!entries || typeof entries !== 'object' || (!Object.hasOwn(entries, 'procedures') && !Object.hasOwn(entries, 'tasks'))) {
+      throw Error('Formato de lista no válido.');
+    }
+    const tasks = entries.tasks === undefined ? [] : entries.tasks;
+    if (!Array.isArray(tasks) || !tasks.every(text => typeof text === 'string' && text.trim() && text.length <= 200)) {
+      throw Error('La lista contiene recados no válidos.');
+    }
+    const core = window.miDiaPersonalCore;
+    const procedures = entries.procedures === undefined ? [] : core.validate({...core.defaults(), procedures: entries.procedures}).procedures;
+    const features = window.miDiaFeaturesCore.validate(state.features);
+    const personal = features.personal ??= core.defaults();
+    const unique = (existing, items) => {
+      const names = new Set(existing.map(name => name.trim().toLocaleLowerCase('es')));
+      return items.filter(name => {
+        const normalized = name.trim().toLocaleLowerCase('es');
+        if (names.has(normalized)) return false;
+        names.add(normalized);
+        return true;
+      });
+    };
+    const titles = unique(state.tasks.map(item => item.text), tasks);
+    const names = new Set(unique(personal.procedures.map(item => item.name), procedures.map(item => item.name)));
+    let added = 0;
+    for (const item of procedures) {
+      if (!names.delete(item.name)) continue;
+      personal.procedures.push({...item, id: crypto.randomUUID()});
+      added++;
+    }
+    if (added || titles.length) {
+      state.tasks.push(...titles.map(text => ({text: text.trim(), done: false})));
+      state.features = features;
+      save();
+    }
+    return {procedures: added, tasks: titles.length};
+  },
   validate: validateBackup,
   useAccount(uid) { key = uid ? `mi-dia-account-${uid}` : 'mi-dia-v1'; },
   apply(data) {
@@ -367,6 +427,7 @@ window.miDia = {
   },
   lock(locked) {
     editingLocked = locked;
+    if (locked) dictation?.cancel();
     window.dispatchEvent(new CustomEvent('mi-dia-lock', {detail: locked}));
     document.querySelectorAll('.tasks input, .tasks button, .grid input, .grid button, #import, #settings input, #settings button, #help-save, .daily input, .daily button, .daily select, #packing-settings input, #packing-settings button').forEach(node => node.disabled = locked);
   }
