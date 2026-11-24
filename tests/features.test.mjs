@@ -45,3 +45,13 @@ test('menú fechado, proteína expresa y casilla fija por día', async () => {
   assert.deepEqual(core.validate(data), data);
   assert.equal(core.summary(data, new Date(2026, 10, 23, 12)).percent, 100);
 });
+
+test('la ventana mensual cruzada incluye el 24 y el 5 y conserva el recordatorio', () => {
+  const reminders = [{name: 'Clave', from: 24, through: 5}];
+  const features = core.validate({...core.defaults(), monthlyReminders: reminders});
+  assert.deepEqual(features.monthlyReminders, reminders);
+  for (const [month, day, visible] of [[11, 23, false], [11, 24, true], [11, 31, true], [0, 1, true], [0, 5, true], [0, 6, false]]) {
+    assert.equal(core.activeReminders(reminders, new Date(2026, month, day, 12)).length, Number(visible));
+  }
+  assert.throws(() => core.validateReminders([{name: 'Clave', from: 0, through: 5}]));
+});

@@ -13,6 +13,20 @@
     return Array.from({length:7}, (_, i) => {const date = new Date(start); date.setDate(start.getDate()+i); return dayKey(date);});
   }
   const defaults = () => ({routines:[], records:{}, away:{}, packingUrl:'', remindChatGPT:true});
+  function validateReminders(value) {
+    const validDay = day => Number.isInteger(day) && day >= 1 && day <= 31;
+    if (!Array.isArray(value) || !value.every(item => item && typeof item.name === 'string'
+      && item.name.trim() && item.name.length <= 120 && validDay(item.from) && validDay(item.through))) {
+      throw Error('Recordatorio mensual no válido.');
+    }
+    return value.map(({name, from, through}) => ({name: name.trim(), from, through}));
+  }
+  function activeReminders(reminders, date = new Date()) {
+    const day = date.getDate();
+    return reminders.filter(({from, through}) => from <= through
+      ? day >= from && day <= through
+      : day >= from || day <= through);
+  }
   function validate(value) {
     if (value === undefined) return defaults();
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Configuración diaria no válida.');
@@ -34,6 +48,7 @@
       records:JSON.parse(JSON.stringify(records)), away:{...away}, packingUrl, remindChatGPT,
       ...(value.personal === undefined ? {} : {personal: personal.validate(value.personal)}),
       ...(value.menu === undefined ? {} : {menu: Object.fromEntries(Object.entries(value.menu).map(([day, {dish, protein}]) => [day, {dish, protein}]))}),
+      ...(value.monthlyReminders === undefined ? {} : {monthlyReminders: validateReminders(value.monthlyReminders)}),
       ...(value.taskChecklists ? {taskChecklists: true} : {})
     };
   }
@@ -53,6 +68,6 @@
     const date = v => new Date(v?.dateTime || (v?.date ? v.date+'T00:00:00' : NaN));
     return events.filter(e => e.status!=='cancelled' && date(e.start)<end && date(e.end)>start && /\b(viaje|vuelo|flight|hotel|tren|train|aeropuerto|airport|vacaciones|travel|escapada)\b/i.test(`${e.summary||''} ${e.location||''}`));
   }
-  const api={dayKey,tomorrow,weekDays,defaults,validate,due,routinesFor,thawId,summary,trips};
+  const api={dayKey,tomorrow,weekDays,defaults,validate,due,routinesFor,thawId,summary,trips,validateReminders,activeReminders};
   if (typeof module!=='undefined') module.exports=api; else root.miDiaFeaturesCore=api;
 })(globalThis);

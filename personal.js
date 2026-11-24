@@ -139,7 +139,12 @@
       const json = JSON.parse(await file.text());
       if (locked || epoch !== accountEpoch) return;
       const added = app.importEntries(json);
-      importStatus.textContent = `Añadidos: ${added.procedures} trámites y ${added.tasks} recados.`;
+      const counts = new Intl.ListFormat('es').format([
+        `${added.procedures} ${added.procedures === 1 ? 'trámite' : 'trámites'}`,
+        `${added.tasks} ${added.tasks === 1 ? 'recado' : 'recados'}`,
+        `${added.reminders} ${added.reminders === 1 ? 'recordatorio' : 'recordatorios'}`
+      ]);
+      importStatus.textContent = `Se han añadido ${counts}.`;
     } catch (error) {
       if (epoch === accountEpoch) importStatus.textContent = error instanceof SyntaxError ? 'El archivo debe ser JSON válido.' : error.message;
     }

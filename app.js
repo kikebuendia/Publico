@@ -203,7 +203,20 @@ $('help-copy').onclick = async () => {
   }
 };
 
-function render() { renderList('tasks'); renderList('people'); $('empty').hidden = state.tasks.length > 0; $('people-empty').hidden = state.people.length > 0; $('count').textContent = state.tasks.filter(t => !t.done).length; $('meals-link').href = safeUrl(state.meals,true) || 'https://keep.google.com/'; $('travels').replaceChildren(); state.travels.forEach((item,i) => { const li = document.createElement('li'); const a = document.createElement('a'); a.textContent = item.text + ' ↗'; a.href = safeUrl(item.url) || '#'; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.append(a,removeButton(() => {state.travels.splice(i,1);save();},`Eliminar ${item.text}`)); $('travels').append(li); }); window.dispatchEvent(new Event('mi-dia-render')); }
+function renderMonthlyReminders() {
+  const reminders = window.miDiaFeaturesCore.activeReminders(state.features?.monthlyReminders ?? []);
+  const list = $('monthly-reminders');
+  list.replaceChildren(...reminders.map(({name}) => {
+    const item = document.createElement('li');
+    item.textContent = name;
+    return item;
+  }));
+  list.hidden = reminders.length === 0;
+}
+window.addEventListener('mi-dia-day-change', renderMonthlyReminders);
+window.addEventListener('focus', renderMonthlyReminders);
+
+function render() { renderMonthlyReminders(); renderList('tasks'); renderList('people'); $('empty').hidden = state.tasks.length > 0; $('people-empty').hidden = state.people.length > 0; $('count').textContent = state.tasks.filter(t => !t.done).length; $('meals-link').href = safeUrl(state.meals,true) || 'https://keep.google.com/'; $('travels').replaceChildren(); state.travels.forEach((item,i) => { const li = document.createElement('li'); const a = document.createElement('a'); a.textContent = item.text + ' ↗'; a.href = safeUrl(item.url) || '#'; a.target = '_blank'; a.rel = 'noopener noreferrer'; li.append(a,removeButton(() => {state.travels.splice(i,1);save();},`Eliminar ${item.text}`)); $('travels').append(li); }); window.dispatchEvent(new Event('mi-dia-render')); }
 for (const [form,input,kind] of [['task-form','task','tasks'],['person-form','person','people']]) $(form).onsubmit = e => {e.preventDefault();const text = $(input).value.trim();if(!text)return;state[kind].push({text,done:false});$(input).value='';save();$(input).focus();};
 // El dictado solo rellena el borrador: el usuario decide cuándo añadirlo.
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -354,8 +367,12 @@ $('import-file').onchange = async () => {
     if (data.features?.personal && data.features.personal.purchases === undefined && state.features?.personal?.purchases) {
       restored.features.personal.purchases = state.features.personal.purchases;
     }
+    if (data.features?.monthlyReminders === undefined && state.features?.monthlyReminders) {
+      restored.features ??= window.miDiaFeaturesCore.defaults();
+      restored.features.monthlyReminders = window.miDiaFeaturesCore.validateReminders(state.features.monthlyReminders);
+    }
     if (state.features?.taskChecklists) enableTaskChecklists(restored);
-    if (!window.confirm(`Restaurar ${restored.tasks.length} recados con sus pasos, ${restored.people.length} personas, ${restored.travels.length} viajes y el enlace de Keep. Los datos de checklist diario, maleta, trámites, ahorro, planes, detalles, tickets, bonos y menú incluidos en la copia reemplazarán los actuales. Exporta primero una copia si quieres conservarlos. ¿Continuar?`)) {
+    if (!window.confirm(`Restaurar ${restored.tasks.length} recados con sus pasos, ${restored.people.length} personas, ${restored.travels.length} viajes y el enlace de Keep. Los datos de checklist diario, maleta, trámites, ahorro, planes, detalles, tickets, bonos, menú y recordatorios incluidos en la copia reemplazarán los actuales. Exporta primero una copia si quieres conservarlos. ¿Continuar?`)) {
       $('status').textContent = 'Importación cancelada. Tus datos siguen igual.';
       return;
     }
@@ -383,7 +400,7 @@ window.miDia = {
   importEntries(file) {
     if (editingLocked) throw Error('Espera a que se carguen tus listas.');
     const entries = Array.isArray(file) ? {procedures: file} : file;
-    if (!entries || typeof entries !== 'object' || (!Object.hasOwn(entries, 'procedures') && !Object.hasOwn(entries, 'tasks'))) {
+    if (!entries || typeof entries !== 'object' || !['procedures', 'tasks', 'monthlyReminders'].some(field => Object.hasOwn(entries, field))) {
       throw Error('Formato de lista no válido.');
     }
     const tasks = entries.tasks === undefined ? [] : entries.tasks;
@@ -392,7 +409,9 @@ window.miDia = {
     }
     const core = window.miDiaPersonalCore;
     const procedures = entries.procedures === undefined ? [] : core.validate({...core.defaults(), procedures: entries.procedures}).procedures;
-    const features = window.miDiaFeaturesCore.validate(state.features);
+    const featureCore = window.miDiaFeaturesCore;
+    const incomingReminders = featureCore.validateReminders(entries.monthlyReminders === undefined ? [] : entries.monthlyReminders);
+    const features = featureCore.validate(state.features);
     const personal = features.personal ??= core.defaults();
     const unique = (existing, items) => {
       const names = new Set(existing.map(name => name.trim().toLocaleLowerCase('es')));
@@ -411,12 +430,16 @@ window.miDia = {
       personal.procedures.push({...item, id: crypto.randomUUID()});
       added++;
     }
-    if (added || titles.length) {
+    const existingReminders = features.monthlyReminders ?? [];
+    const reminderNames = new Set(unique(existingReminders.map(item => item.name), incomingReminders.map(item => item.name)));
+    const reminders = incomingReminders.filter(item => reminderNames.delete(item.name));
+    if (reminders.length) features.monthlyReminders = [...existingReminders, ...reminders];
+    if (added || titles.length || reminders.length) {
       state.tasks.push(...titles.map(text => ({text: text.trim(), done: false})));
       state.features = features;
       save();
     }
-    return {procedures: added, tasks: titles.length};
+    return {procedures: added, tasks: titles.length, reminders: reminders.length};
   },
   validate: validateBackup,
   useAccount(uid) { key = uid ? `mi-dia-account-${uid}` : 'mi-dia-v1'; },
